@@ -1,0 +1,2612 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mood bench</title>
+  <style>
+    *,
+    ::before,
+    ::after {
+      box-sizing: border-box
+    }
+
+    :root {
+      color-scheme: light dark;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    :root[data-theme=light] {
+      color-scheme: light
+    }
+
+    /* the page viewer can set data-theme */
+    :root[data-theme=dark] {
+      color-scheme: dark
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 12px
+    }
+
+    canvas {
+      width: 100%;
+      display: block
+    }
+
+    #timeline {
+      height: 280px
+    }
+
+    #moodPlane {
+      aspect-ratio: 1;
+      max-width: 300px;
+      margin: auto
+    }
+
+    .gauge {
+      height: 44px;
+      max-width: 300px;
+      margin: auto
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+      gap: 8px 20px
+    }
+
+    .eventGrid {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px
+    }
+
+    /* recent events list under the timeline */
+    #eventLog {
+      margin-top: 4px
+    }
+
+    .evRow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 3px 0;
+      flex-wrap: wrap
+    }
+
+    .evNum {
+      display: inline-block;
+      min-width: 18px;
+      height: 18px;
+      line-height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      color: #fff;
+      font-size: .78em;
+      font-weight: 600;
+      text-align: center
+    }
+
+    .evTime {
+      font-size: .82em;
+      opacity: .7;
+      font-variant-numeric: tabular-nums
+    }
+
+    .evChip {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: .78em;
+      line-height: 1.45;
+      white-space: nowrap
+    }
+
+    @media(max-width:700px) {
+      .evChip {
+        font-size: .72em;
+        padding: 1px 5px
+      }
+    }
+
+    .columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+      gap: 16px
+    }
+
+    .timelineRow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px
+    }
+
+    /* chart | variable panel */
+    #side {
+      width: 230px
+    }
+
+    #side[hidden] {
+      display: none
+    }
+
+    @media(max-width:700px) {
+      .timelineRow {
+        grid-template-columns: 1fr
+      }
+
+      #side {
+        width: auto
+      }
+    }
+
+    details details {
+      margin-left: 1em
+    }
+
+    /* parameter branches + event groups: matching bordered-box look */
+    #params>details,
+    #events>fieldset {
+      margin: 6px 0;
+      padding: 6px 12px;
+      border: 1px solid rgba(127, 127, 127, .4);
+      border-radius: 4px
+    }
+
+    #params>details>summary {
+      font-weight: 600;
+      margin: 0 0 4px
+    }
+
+    #events>fieldset>legend {
+      font-weight: 600;
+      padding: 0 4px
+    }
+
+    /* references modal */
+    #refsModal[hidden] {
+      display: none
+    }
+
+    #refsBackdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .5);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 12px;
+      overflow: auto;
+      z-index: 50
+    }
+
+    #refsPanel {
+      background: Canvas;
+      color: CanvasText;
+      border: 1px solid CanvasText;
+      border-radius: 8px;
+      max-width: 720px;
+      width: 100%;
+      padding: 20px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .3)
+    }
+
+    #refsPanel h2 {
+      margin: 0 0 4px
+    }
+
+    #refsPanel .ref {
+      margin: 14px 0;
+      padding-left: 14px;
+      border-left: 2px solid currentColor;
+      opacity: .92
+    }
+
+    #refsPanel .ref cite {
+      font-style: italic
+    }
+
+    #refsPanel .ref .where {
+      font-size: .9em;
+      opacity: .7;
+      margin-top: 4px
+    }
+
+    #refsPanel .ref .desc {
+      margin-top: 4px
+    }
+
+    #refsPanel .refTopic {
+      margin: 24px 0 6px;
+      font-size: .78em;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity: .75;
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 4px
+    }
+
+    #refsPanel .refTopic:first-child {
+      margin-top: 8px
+    }
+
+    #refsClose {
+      float: right;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 8px;
+      background: transparent;
+      color: inherit;
+      border: 1px solid currentColor;
+      border-radius: 4px
+    }
+
+    #refsClose:hover {
+      background: rgba(127, 127, 127, .2)
+    }
+
+    #refsPanel ul {
+      margin: 8px 0 0;
+      padding-left: 20px
+    }
+
+    #refsPanel li {
+      margin: 4px 0
+    }
+
+    /* custom event composer */
+    #customButtons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px
+    }
+
+    #customButtons button {
+      padding: 6px 14px;
+      cursor: pointer;
+      border: 1.5px dashed;
+      /* colour set inline per dim — distinct from the solid preset event buttons */
+      background: rgba(127, 127, 127, .08);
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    #customButtons button:hover {
+      background: rgba(127, 127, 127, .2)
+    }
+
+    #customQueue {
+      min-height: 1.5em
+    }
+
+    .queueItem {
+      margin: 2px 0;
+      padding: 6px 8px;
+      background: rgba(127, 127, 127, .12);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: .9em
+    }
+
+    .queueItem label {
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .queueItem input[type=range] {
+      width: 80px;
+      vertical-align: middle
+    }
+
+    .queueItem .life {
+      opacity: .6;
+      font-size: .85em
+    }
+
+    .rmCustom {
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+      color: inherit;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 6px
+    }
+
+    .rmCustom:hover {
+      background: rgba(127, 127, 127, .25)
+    }
+
+    /* surrounding panel */
+    #surroundingList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      min-height: 1.5em
+    }
+
+    .surrItem {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(127, 127, 127, .12);
+      border-radius: 3px;
+      font-size: .85em
+    }
+
+    .surrItem svg {
+      flex-shrink: 0
+    }
+
+    .surrItem .ttl {
+      opacity: .6;
+      margin-left: auto;
+      padding-left: 8px
+    }
+
+    .surrItem .type {
+      opacity: .5;
+      font-size: .85em
+    }
+
+    /* memory panel */
+    #memoryList {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+      gap: 4px;
+      margin-top: 6px;
+      min-height: 1.5em
+    }
+
+    .memItem {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(127, 127, 127, .12);
+      border-radius: 3px;
+      font-size: .85em;
+      flex-wrap: wrap
+    }
+
+    .memItem .memVal {
+      font-weight: 600;
+      min-width: 36px;
+      text-align: right
+    }
+
+    .memItem .memConf {
+      opacity: .7;
+      min-width: 42px
+    }
+
+    .memItem .memCount {
+      opacity: .5;
+      margin-left: auto
+    }
+
+    /* bestiary panel (grouped by category) */
+    #bestiary {
+      margin-top: 6px
+    }
+
+    .bestCat {
+      font-size: .8em;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: .6;
+      margin: 8px 0 2px
+    }
+
+    .bestCatGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+      gap: 4px;
+      margin-bottom: 4px
+    }
+
+    .bestItem {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(127, 127, 127, .12);
+      border-radius: 3px;
+      font-size: .85em;
+      flex-wrap: wrap
+    }
+
+    .bestItem b {
+      text-transform: capitalize
+    }
+
+    .bestItem small {
+      opacity: .6
+    }
+
+    .spawnArch {
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 5px;
+      margin-left: auto
+    }
+
+    .spawnArch:hover {
+      background: rgba(127, 127, 127, .25)
+    }
+
+    /* archetype editor modal + custom event editor modal (shared styles via comma-separated selectors) */
+    #archModal[hidden],
+    #custEventModal[hidden] {
+      display: none
+    }
+
+    #archBackdrop,
+    #custEventBackdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .5);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 12px;
+      overflow: auto;
+      z-index: 50
+    }
+
+    #archPanel,
+    #custEventPanel {
+      background: Canvas;
+      color: CanvasText;
+      border: 1px solid CanvasText;
+      border-radius: 8px;
+      max-width: 520px;
+      width: 100%;
+      padding: 20px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .3)
+    }
+
+    #archPanel h2,
+    #custEventPanel h2 {
+      margin: 0 0 8px
+    }
+
+    #archClose,
+    #custEventClose {
+      float: right;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 8px;
+      background: transparent;
+      color: inherit;
+      border: 1px solid currentColor;
+      border-radius: 4px
+    }
+
+    #archClose:hover,
+    #custEventClose:hover {
+      background: rgba(127, 127, 127, .2)
+    }
+
+    #archForm label,
+    #custEventForm label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .85em
+    }
+
+    #archForm input,
+    #archForm select,
+    #custEventForm input,
+    #custEventForm select {
+      flex: 1;
+      font-size: .9em;
+      padding: 3px 4px;
+      min-width: 60px
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <button id="refs" style="float:right;margin-left:6px" aria-label="References / Prameny"
+      title="References / Prameny">📑</button>
+    <button id="lang" style="float:right" aria-label="Language / Jazyk" title="Language / Jazyk">🌐</button>
+    <h1 data-t="title"></h1>
+    <p><button id="pause"></button> <button id="reset" data-t="reset"></button></p>
+  </header>
+
+  <section>
+    <p style="text-align:right;margin:0"><button id="sidebtn" data-a="vars" aria-expanded="true">◧</button></p>
+    <div class="timelineRow">
+      <div>
+        <canvas id="timeline" role="img"></canvas>
+        <b data-t="logh"></b>
+        <div id="eventLog"></div>
+      </div>
+      <div id="side">
+        <b data-t="varh"></b><br>
+        <div id="variableList"></div>
+        <small id="behaviourLegend"></small>
+      </div>
+    </div>
+  </section>
+
+  <div class="columns">
+    <section>
+      <h2 data-t="worldh"></h2>
+      <b id="clockText" style="font-size:32px"></b> <small id="sleepDebt"></small>
+      <canvas id="gaugeLight" class="gauge" role="img" data-a="litg"></canvas>
+      <canvas id="gaugeSleep" class="gauge" role="img" data-a="slpg"></canvas>
+      <canvas id="gaugeTemp" class="gauge" role="img" data-a="tempg"></canvas>
+      <div id="surroundingList"></div>
+      <details>
+        <summary data-t="memh"></summary>
+        <div id="memoryList"></div>
+      </details>
+      <details>
+        <summary data-t="besth"></summary>
+        <p><button id="openArchEditor" data-t="archAdd"></button></p>
+        <div id="bestiary"></div>
+      </details>
+    </section>
+    <section>
+      <canvas id="moodPlane" role="img" data-a="plane"></canvas>
+      <h2 id="moodLabel" style="text-align:center;margin:4px"></h2>
+      <h3 id="behaviourLabel" style="text-align:center;margin:4px"></h3>
+      <p id="status" aria-live="polite" style="text-align:center;margin:4px"></p>
+      <canvas id="gaugeDominance" class="gauge" role="img" data-a="domg"></canvas>
+      <canvas id="gaugeHunger" class="gauge" role="img" data-a="hung"></canvas>
+      <canvas id="gaugeHydration" class="gauge" role="img" data-a="hydg"></canvas>
+      <canvas id="gaugeHealth" class="gauge" role="img" data-a="hltg"></canvas>
+    </section>
+  </div>
+
+  <details>
+    <summary><b data-t="evh"></b></summary>
+    <fieldset>
+      <legend data-t="cust"></legend>
+      <div id="customButtons"></div>
+      <div id="customQueue"></div>
+    </fieldset>
+    <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button
+        id="randomEvent" data-t="rand"></button></p>
+    <p><button id="openCustEventEditor" data-t="custEventAdd"></button></p>
+    <div id="events"></div>
+  </details>
+
+  <details>
+    <summary><b data-t="parh"></b></summary>
+    <div id="params"></div>
+  </details>
+
+  <div id="refsModal" hidden>
+    <div id="refsBackdrop" onclick="if(event.target===this)$('#refsModal').hidden=true">
+      <div id="refsPanel">
+        <button id="refsClose" onclick="$('#refsModal').hidden=true" aria-label="Close">×</button>
+        <h2 data-t="refsh"></h2>
+        <p data-t="refsi"></p>
+        <div id="refsList"></div>
+      </div>
+    </div>
+  </div>
+
+    <div id="custEventModal" hidden>
+    <div id="custEventBackdrop" onclick="if(event.target===this)$('#custEventModal').hidden=true">
+      <div id="custEventPanel">
+        <button id="custEventClose" onclick="$('#custEventModal').hidden=true" aria-label="Close">×</button>
+        <h2 data-t="custEventh"></h2>
+        <p><small data-t="custEventDesc"></small></p>
+        <div id="custEventForm" class="grid"></div>
+        <p><button id="custEventCreate" data-t="custEventCreate"></button></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="archModal" hidden>
+    <div id="archBackdrop" onclick="if(event.target===this)$('#archModal').hidden=true">
+      <div id="archPanel">
+        <button id="archClose" onclick="$('#archModal').hidden=true" aria-label="Close">×</button>
+        <h2 data-t="archAdd"></h2>
+        <div id="archForm" class="grid"></div>
+        <p><button id="archCreate" data-t="archCreate"></button></p>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script>
+    /* ═══════════════════════════════════════════════════════════════════
+       Mood bench — a live simulation of mood (valence / arousal / dominance),
+       needs (hunger, thirst, health), a two-process sleep model, a behaviour
+       state machine, and a learning memory system.
+    
+       ═══ Table of Contents ═══
+       Numbers below correspond to the section-banner comments in the source, in order of appearance.
+       Letters under #13 correspond to sub-section banners within One simulation tick.
+    
+        1. Small helpers              ($, clamp, clamp01, wrap24, setText)
+        2. Translations               (T, lang, t)
+        3. Parameters                  (CONFIG, P, WORLD_DEFAULTS, getParam, setParam, SLIDERS)
+        4. Constants (non-sliders)    (DT, UP, HOME, K)
+        5. Events                     (RAW, EXTRA, EVENTS, SHAPE, EVENT_BY_KEY, EV, TEMP)
+        6. Random events              (RANDOM)
+        7. Behaviour state machine    (reckless, curiosity, ST, APPROACH_TICKS,
+                                        lastPreviewedKey, stepApproach, previewPulse, decide)
+        8. Body clock & light         (daylight, bodyClock)
+        9. Simulation state           (S, W, behaviour, H, N, M, Q, LOG, evSeq, PULSES, MARKS)
+       10. Custom events persistence  (CUSTOM_EVENTS, CUSTOM_EVENTS_KEY, loadCustomEvents,
+                                        saveCustomEvents, run, circOn, clock, customQueue)
+       11. Surrounding objects        (nextObjectId, SURR_FEATURES, SURR_COLOR_HEX, SURR_SIZE_PX,
+                                        ARCHETYPES, objectSvg,
+                                        randomFeatures, SPAWN_RATES,
+                                        spawnObject, stepSurrounding, renderSurrounding)
+       12. Memory & learning          (memory, featureKey, INNATE_MEMORY, seedMemory, eyes,
+                                        learnFromEvent, renderBestiary, buildArchForm,
+                                        buildCustEventForm, renderMemory, init, startSleep, wake)
+                                        — note: init / startSleep / wake live HERE (not in #13),
+                                        because init() calls seedMemory(), which is defined
+                                        just above. The Simulation state section only declares
+                                        the variables; init() that resets them is here.
+       13. One simulation tick         (tick)
+             Sub-sections (the dash-banner comments inside the tick):
+               a. Mood       (decayMood, applyBehaviour, pulsesOf, needMult, pulseValue,
+                              pulseSum, feel, fireEvents, clampMood, moveBaseline)
+               b. Needs      (applyNeeds, applyHealth)
+               c. World      (deriveWorld, stepWorld)
+               d. Sleep      (stepBodyClock, stepSleepPressure, stepSleepWake)
+               e. Behaviour  (chooseBehaviourAndRandomEvents, record)
+       14. Drawing                    (COL, GC, SER, SHOW, BASE_KEY, STRETCH, INK, fit,
+                                        drawTimeline, drawMoodPlane, gauge, lastLogKey, readout)
+       15. Main loop                  (last, frame)
+       16. UI                         (sign, fmt, clockLabel, evName, eventLabel, glyph,
+                                        addSlider, sync, addGroup, addBranch, buildText,
+                                        buildVariablePanel, buildParameterTree,
+                                        buildCustomEventComposer, buildEventGrid, build,
+                                        TICK_REAL_S, TICK_SIM_MIN, PULSE_LIFE, fmtLife,
+                                        renderCustomQueue, + onclick handlers for
+                                        fireCustom / clearCustom / randomEvent / pause /
+                                        reset / sidebtn / lang / timeline-hover)
+       17. References modal           (renderRefs, + onclick handlers for refs / arch /
+                                        custEvent modals + archCreate + custEventCreate
+                                        + Escape key handler)
+    
+       Architecture (layered):
+       - Layer 1: Body feelings (innate, interoceptive) — hunger, cold, sleep debt, pain, eating
+       - Layer 2: Malaise effects (shared) — anhedonia, blunted phasic, low reactive dominance
+       - Layer 3: Per-state tonic arousal — sleep debt -> hyperarousal, sickness -> lethargy
+       - Surrounding objects — spawn, despawn, features, TTL
+       - Memory & learning — Rescorla-Wagner, feature → expected valence
+    ═════════════════════════════════════════════════════════════════ */
+
+    /* ============ Small helpers ============ */
+    // $ = "find the first element matching this CSS selector"
+    const $ = s => document.querySelector(s);
+    // clamp = keep a number inside -1..1 so moods cannot run away. clamp01 = same, but 0..1.
+    const clamp = x => Math.max(-1, Math.min(1, x));
+    const clamp01 = x => Math.max(0, Math.min(1, x));
+    // wrap24 = fold any number of hours into 0..24
+    const wrap24 = x => ((x % 24) + 24) % 24;
+    // setText = change an element's text only if it differs, so screen readers do not re-announce the same line every frame
+    const setText = (sel, txt) => { const el = $(sel); if (el.textContent !== txt) el.textContent = txt; };
+
+    /* ============ Translations ============ */
+    // T = all visible text. English first, Czech second. t (below) = the active language.
+    // English event names are made from the event key (predator_attack -> "Predator attack"), so only exceptions are listed.
+    const T = {
+      en: {
+        title: 'Mood bench',
+        val: 'Valence', aro: 'Arousal', dom: 'Dominance', hun: 'Hunger meter', hyd: 'Hydration meter', hlt: 'Health', slp: 'Sleep pressure', base: 'base',
+        varh: 'Variables', vars: 'Show or hide the variable panel', logh: 'Recent events', logEmpty: 'No events yet.',
+        note: 'Dashed = baseline. Numbered tags on the chart are color-coded by event group (red = threat, orange = food, pink = social, slate = env, brown = body, purple = sleep) — hover one for the event names. Top strip = behaviour. Arousal includes the body-clock offset. Boxes choose which lines to draw.',
+        worldh: 'Environment', evh: 'All events', parh: 'Parameters', cust: 'Custom event',
+        wopt: 'Clock, light and rhythm', temph: 'Temperament',
+        surrEmpty: 'Nothing in view.',
+        memh: 'Memory', memEmpty: 'No memories yet.',
+        besth: 'Object types',
+        archName: 'name', archAdd: 'Add type', archCreate: 'Create',
+        archSize: 'Size', archColor: 'Color', archShape: 'Shape', archUT: 'Outcome',
+        custEventh: 'Save custom event', custEventAdd: 'Add event', custEventCreate: 'Create', custEventDesc: 'Build a repeatable event button. The v/a/d impacts shape the default pulses (via SHAPE); HP / food / water are optional side effects. Saved events appear in the "Custom events" group below the regular buttons and persist across page reloads.',
+        custEventName: 'name', custEventGroup: 'group', custEventV: 'valence', custEventA: 'arousal', custEventD: 'dominance', custEventHP: 'hp', custEventFood: 'food', custEventWater: 'water',
+        custEventGroupCustom: 'Custom events', custEventDelete: 'Delete',
+        feat: {
+          size: { small: 'small', medium: 'medium', large: 'large' },
+          color: { dark: 'dark', red: 'red', green: 'green', blue: 'blue', brown: 'brown' },
+          shape: { round: 'round', angular: 'angular', animal: 'animal', plant: 'plant' }
+        },
+        fire: 'Fire custom event', rand: 'Random preset', pause: 'Pause', resume: 'Resume', reset: 'Reset',
+        custClear: 'Clear queue', custEmpty: 'No spikes queued. Click + to add one, then adjust its amp and τ inline.',
+        custAmp: 'amp', custTau: 'τ',
+        custAddFmt: 'Add {dim} pulse',   // button text for the per-dimension add buttons ("spike" suggests up-only; "pulse" is direction-neutral and matches the codebase terminology)
+        refsh: 'Papers used in this model', refsi: 'Each paper below is cited inline in the code or underlies a named concept. They are grouped by topic — Affect structure (VAD), Learning & memory, Two-process sleep, Sleep loss & affect, Temperament — so the list stays navigable as it grows. The “where” line on each entry points at the code that implements the idea.',
+        refs: [
+          // -- Affect structure (VAD) --
+          {
+            topic: 'Affect structure (VAD)',
+            cite: 'Osgood, C. E., Suci, G. J., & Tannenbaum, P. H. (1957). The measurement of meaning. University of Illinois Press.',
+            desc: 'First identified three orthogonal factors in affective language — Evaluation (valence), Potency (dominance), and Activity (arousal). The three-axis V / A / D model used throughout this simulation traces back to this original semantic-differential work.',
+            where: 'See: the three mood dimensions s.v / s.a / s.d and the three-colour timeline in drawTimeline().'
+          },
+          {
+            topic: 'Affect structure (VAD)',
+            cite: 'Mehrabian, A., & Russell, R. M. (1974). An approach to environmental psychology. MIT Press.',
+            desc: 'Formalised the PAD (Pleasure–Arousal–Dominance) model, in which dominance captures the perceived degree of control or power in a situation (submissive → dominant). This is why the simulation tracks dominance as a separate dimension rather than collapsing it into valence.',
+            where: 'See: the dominance dimension s.d and the dominance gauge rendered in frame().'
+          },
+          {
+            topic: 'Affect structure (VAD)',
+            cite: 'Russell, J. A. (2003). Core affect and the psychological construction of emotion. Psychological Review, 110(1), 145-172.',
+            desc: 'Later demoted dominance to a "peripheral" dimension, leaving valence and arousal as "core affect". This is the version Mendl et al. (2010) adopted for animals — but the simulation keeps the third axis (see Bračić 2024 below for the counter-argument that re-integrates dominance).',
+            where: 'See: drawMoodPlane() — the plane shows only valence × arousal (the "core affect" view); dominance lives in a separate gauge to its right.'
+          },
+          {
+            topic: 'Affect structure (VAD)',
+            cite: 'Mendl, M., Burman, O. H. P., Parker, R. M. A., & Paul, E. S. (2010). A new approach to modelling animal emotionality: the valence-arousal-dominance model. Reviews in the Neurosciences, 21(3-4), 167-184.',
+            desc: 'The mood plane (valence on x, arousal on y) with its four quadrants (excited / calm / sad / anxious) follows Fig. 1 of this paper. The “ambiguous event” rule — that an ambiguous stimulus (a rustle in the grass) takes its valence from the current baseline mood — comes from Table 1 of the same paper.',
+            where: 'See: drawMoodPlane() and the EXTRA.amb / K.ambValence rules in fireEvents().'
+          },
+          {
+            topic: 'Affect structure (VAD)',
+            cite: 'Bračić, A. (2024). Affective dominance in non-human animals: re-integrating dominance into animal affect research. Synthese, 203(4).',
+            desc: 'Argues for re-integrating dominance into animal affect research, defining it as the organism\'s self-assessed behavioural control — i.e. how capable it perceives itself of obtaining rewards or overcoming punishments. Draws on Bryant\'s primary/secondary control framework from the human self-control literature and extends Mendl\'s valence–arousal space into a full VAD model for animals. The simulation\'s reactive-dominance and tonic-dominance mechanisms (posDomDamp, malaiseDominanceDrop) are motivated by this re-integration.',
+            where: 'See: the malaise-effects group in P (especially posDomDamp and malaiseDominanceDrop) and the reactive-dominance scaling in fireEvents() and previewPulse().'
+          },
+          // -- Learning & memory --
+          {
+            topic: 'Learning & memory',
+            cite: 'Rescorla, R. A., & Wagner, A. R. (1972). A theory of Pavlovian conditioning: Variations in the effectiveness of reinforcement and nonreinforcement. In A. H. Black & W. F. Prokasy (Eds.), Classical Conditioning II: Current Research and Theory (pp. 64-99). Appleton-Century-Crofts.',
+            desc: 'The Rescorla-Wagner rule: the expected outcome of a conditioned stimulus shifts toward the actual outcome of the unconditioned stimulus it predicts, with a learning-rate parameter α. This is the exact update used in learnFromEvent(): entry.valence += P.learnRate × (imp.v − entry.valence). The same α also grows memory confidence (entry.conf) on each encounter — hence the "learning confidence" that gates whether an expectation is strong enough to drive a preview pulse (previewConfFloor).',
+            where: 'See: learnFromEvent() for the running-average update; P.learnRate for the α knob; previewPulse() for the confidence gate; the memory panel that displays the learned (valence, conf) pairs.'
+          },
+          // -- Two-process sleep --
+          {
+            topic: 'Two-process sleep',
+            cite: 'Borbély, A. A. (1982). A two process model of sleep regulation. Human Neurobiology, 1(3), 195-204.',
+            desc: 'The sleep model is the classic two-process model: Process S (homeostatic sleep pressure, rises while awake, decays while asleep, both exponential) and Process C (circadian body clock, modulates the sleep / wake thresholds and the displayed arousal). The code’s “two-process sleep model” phrasing refers to this paper.',
+            where: 'See: stepSleepPressure() for Process S, stepBodyClock() for Process C, and stepSleepWake() for how they jointly decide sleep onset and waking.'
+          },
+          // -- Sleep loss & affect (the malaise effects) --
+          {
+            topic: 'Sleep loss & affect',
+            cite: 'Stenson, A. R., Kurinec, C. A., et al. (2021). Total sleep deprivation reduces top-down regulation of emotion without altering bottom-up affective processing. PLOS ONE, 16(9), e0256983.',
+            desc: 'Sleep deprivation impairs top-down emotional regulation (the "reactive dominance" side of the model) while leaving bottom-up affective reactivity intact. Motivates the malaise-driven posDomDamp parameter (positive dominance gains are flattened when unwell) and the malaiseDominanceDrop tonic target — both capture reduced perceived control during sleep debt.',
+            where: 'See: posDomDamp and malaiseDominanceDrop in the malaise-effects group; the same dampers apply to real events in fireEvents() and to previews in previewPulse().'
+          },
+          {
+            topic: 'Sleep loss & affect',
+            cite: 'Palmer, C. A., Bower, J. L., Cho, K. W., Clementi, M. A., Lau, S., Oosterhoff, B., & Alfano, C. A. (2023). Sleep loss and emotion: A systematic review and meta-analysis of over 50 years of experimental research. Psychological Bulletin, 150(4), 440-463.',
+            desc: 'Meta-analysis of 50+ years of experimental work. Confirms four robust patterns the simulation reproduces via the malaise-effects group: positive-valence attenuation (anhedonia → posValenceSuppress), narrowed phasic arousal range (→ phasicBlunt), reduced tonic VAD arousal (→ malaiseTonicLethargy — NOT physiological hyperarousal, which is routed elsewhere via anhedonia + reactive dominance dampers), and overall mood worsens with sleep loss (→ malaiseValenceDrop for the direct push, plus the depfactor mechanic for low-valence-triggered shrink of baseline arousal and dominance).',
+            where: 'See: posValenceSuppress, phasicBlunt, malaiseTonicLethargy, and malaiseValenceDrop in the malaise-effects group; the depfactor mechanic in moveBaseline().'
+          },
+          {
+            topic: 'Sleep loss & affect',
+            cite: 'Motomura, Y., Kitamura, S., Oba, K., Terasawa, Y., Enomoto, M., Katayose, Y., et al. (2013). Sleep debt elicits negative emotional reaction through diminished amygdala-anterior cingulate functional connectivity. PLOS ONE, 8(2), e56578.',
+            desc: 'Sleep debt produces stronger negative emotional reactions via reduced amygdala–anterior cingulate functional connectivity — i.e. less top-down modulation of the amygdala. Underpins the asymmetric pattern where positive affect is blunted but negative affect is preserved (or amplified) during sleep loss, which is reproduced as the (1 − posValenceSuppress × malaise) factor applied only to positive valence pulses, never to negative ones.',
+            where: 'See: the asymmetric valence damper in fireEvents() — only amp > 0 gets the (1 − posValenceSuppress × malaise) factor; negative pulses pass through unscaled.'
+          },
+          // -- Temperament --
+          {
+            topic: 'Temperament',
+            cite: 'Réale, D., Reader, S. M., Sol, D., McDougall, P. T., & Dingemanse, N. J. (2007). Integrating animal temperament within ecology and evolution. Biological Reviews, 82(2), 291-318.',
+            desc: 'The five temperament axes (boldness, exploration, activity, aggressiveness, sociability) are taken from this review. They are exposed as a parameter branch but the simulation does not read them yet — they are reserved for future scaling of behaviour weights.',
+            where: 'See: the TEMP object and the temperament branch built in build().'
+          }
+        ],
+        circ: 'Arousal follows the body clock', circTip: 'off removes only the arousal offset; the clock still gates sleep',
+        clock: 'Run the clock', clockTip: '1 sim hour ≈ {s} s',
+        sun: 'Sunlight', sunTip: 'off = constant dark, the body clock free-runs',
+        light: 'Light', dark: 'dark', bright: 'bright', rest: 'rested', tired: 'tired', debt: 'Sleep debt', malaiseLabel: 'malaise', tempg: 'Temperature', cold: 'cold', hot: 'hot',
+        cv: 'Valence impact', ca: 'Arousal impact', cd: 'Dominance impact',
+        neutral: 'Neutral', q: ['Excitement', 'Calm', 'Sadness', 'Anxiety'],
+        pos: 'positive', neg: 'negative', hi: 'high arousal', lo: 'low arousal',
+        sb: '−1 submissive', dm: 'dominant +1', sv: '0 starving', fl: 'full 1', dh: '0 dehydrated', hy: 'hydrated 1', hl0: '0 very ill', hl1: 'healthy 1',
+        depl: 'Depleting: baseline valence is below the threshold, so baseline arousal and dominance are shrinking.',
+        sick: 'Sick: health is slowly draining.',
+        hint: 'Dot = current mood, dashed ring = baseline.',
+        amb: 'reaction follows mood',
+        plane: 'Valence and arousal plane', domg: 'Dominance gauge', hung: 'Hunger gauge', hydg: 'Hydration gauge', hltg: 'Health gauge', litg: 'Light level', slpg: 'Sleep pressure gauge',
+        st: { idle: 'Resting', foraging: 'Foraging', socialising: 'Socialising', explore: 'Exploring', nrem: 'NREM sleep', rem: 'REM sleep', approach_object: 'Approaching', flee_object: 'Fleeing object' },
+        eg: { threat: 'Threats', food: 'Food / energy', social: 'Social', env: 'Environment / novelty', body: 'Body', sleep: 'Sleep', neutral: 'Neutral' },
+        ev: { rustle: 'Rustle in the grass', fell_asleep: 'Falling asleep', woke_up: 'Natural waking', sleep_interrupted: 'Sleep interrupted', ate_food: 'Feed', pain: 'Hurt', recovery: 'Heal', illness_onset: 'Sicken', drank_water: 'Drink', grooming_contact: 'Groom', loud_noise: 'Startle' },
+        gm: 'Mood dynamics', gn: 'Needs', gs: 'Sleep', gw: 'Environment',
+        gh: 'Health', gb: 'Behaviour', gmf: 'Malaise effects', gl: 'Learning', gpv: 'Preview pulses',
+        p: {
+          decay: 'Decay rate', plen: 'Event length ×', drift: 'Baseline drift rate', pers: 'Valence sensitivity', thr: 'Depletion threshold', depfactor: 'Depletion factor',
+          hrate: 'Hunger loss rate', wrate: 'Hydration loss rate', hmood: 'Hunger and thirst pull on mood', foodQuality: 'Food quality',
+          sleep: 'Sleep needs arousal below', krise: 'Sleep pressure rise (per h)', kdecay: 'Sleep pressure decay (per h)', camp: 'Body-clock gate swing', cycle: 'Sleep cycle length (min)', expect: 'Expected sleep (h/day)', nightlen: 'Night length for cycle (h)', repair: 'Sleep mood repair', wakeCooldown: 'Wake cooldown (ticks)',
+          speed: 'Sim speed', hour: 'Hour of day', amp: 'Circadian arousal strength', tau: 'Free-running period (h)', ent: 'Light entrainment', rate: 'Random event rate ×',
+          sleepHeal: 'Sleep heal rate', sickSleepHeal: 'Sick-sleep heal rate', illDrain: 'Illness drain rate',
+          sticky: 'Behaviour stickiness', decideevery: 'Decision interval (ticks)', learnRate: 'Learning rate (\u03b1)',
+          malaiseOffset: 'Direct malaise offset', posValenceSuppress: 'Anhedonia (positive valence suppress)', phasicBlunt: 'Phasic blunting', posDomDamp: 'Reactive dominance damp', malaiseDominanceDrop: 'Tonic dominance drop', malaiseRepairDamp: 'Sleep repair damper', malaiseTonicLethargy: 'Tonic VAD arousal drop', malaiseValenceDrop: 'Tonic valence drop', tonicRate: 'Tonic rate',
+          previewGain: 'Preview amplitude ×', previewConfFloor: 'Preview confidence floor', previewValFloor: 'Preview |valence| floor'
+        },
+        pd: {
+          decay: 'How fast the slow mood layer returns to baseline. Higher = quicker recovery from behaviour and need effects.',
+          plen: 'Multiplier on the fade time of every event pulse. Higher = events linger longer in the mood.',
+          drift: 'How fast the baseline mood tracks the recent felt mood while awake. Higher = baseline follows mood more tightly.',
+          pers: 'Personality multiplier on valence impacts. Higher = events affect valence more strongly.',
+          thr: 'Baseline valence below this triggers depletion: baseline arousal and dominance shrink each tick.',
+          depfactor: 'Per-tick multiplier on baseline arousal and dominance while depleted. Lower = depletion drains faster. (Renamed from "dep" to disambiguate from sleep deprivation s.dep.)',
+          hrate: 'Hunger meter lost per tick at multiplier 1 (full to empty in ~200 s at the default).',
+          wrate: 'Hydration meter lost per tick at multiplier 1 (thirst runs faster than hunger).',
+          hmood: 'How hard an empty hunger or hydration meter pushes valence down and arousal up.',
+          foodQuality: 'How much the food source refills hunger when the agent eats. 0 = empty calories, 1 = maximally nutritious.',
+          sleep: 'Agent can only fall asleep while displayed arousal is below this threshold.',
+          krise: 'Sleep pressure rise rate while awake (per sim hour).',
+          kdecay: 'Sleep pressure decay rate while asleep (per sim hour).',
+          camp: 'How far the body clock swings the sleep / wake thresholds across the day.',
+          cycle: 'Length of one NREM + REM sleep cycle in sim minutes.',
+          expect: 'Expected sleep per day (sim hours). Defines the sleep-debt target.',
+          nightlen: 'How long a "full night" is for the ultradian cycle progression (the NREM/REM ratio over the night). Separate from "expected sleep" so the debt target and cycle reference can differ.',
+          repair: 'Per tick, how fast sleep pulls the baseline mood back to resting (scaled by sleep stage).',
+          wakeCooldown: 'Ticks before the agent may fall asleep again after being woken by an alarm. Higher = less re-sleep, more insomnia spirals on repeated noise.',
+          speed: 'Simulation speed multiplier. 1 = 10 ticks/sec, 1 sim hour ≈ 2 s.',
+          hour: 'World hour of day (0..24). Drag while the clock is paused; it snaps back when the clock runs.',
+          amp: 'Body clock moves displayed arousal by up to ±this much.',
+          tau: 'Free-running body-clock period in hours (mice ~23.5, humans ~24.2).',
+          ent: 'How strongly light pulls the body clock toward world time (per sim hour).',
+          rate: 'Multiplier on every random-event chance.',
+          sleepHeal: 'Health gained per tick while asleep and not sick.',
+          sickSleepHeal: 'Health gained per tick while asleep and sick. Default is ~1/6 of sleepHeal so illness still progresses during sleep.',
+          illDrain: 'Health lost per tick while sick. Combined with sleepHeal and sickSleepHeal, decides whether the agent recovers or slowly declines.',
+          sticky: 'How strongly the current behaviour resists switching. The current state’s want is multiplied by this in the lottery. Higher = stable behaviour, lower = more jittery.',
+          decideevery: 'Ticks between awake-behaviour decisions (the lottery runs every N ticks, or immediately when a predator appears and the agent is not fleeing). Lower = more reactive, higher = more deliberate.',
+          malaiseOffset: 'Adds a constant malaise boost on top of the computed value (from sleep debt + sickness + low health). Lets you simulate "the agent is generally unwell" without needing to trigger sources. At 0, normal behavior; at 1, full malaise regardless of sources.',
+          posValenceSuppress: 'At full malaise, positive valence pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. This is the "anhedonia" effect — positive events feel less good when unwell.',
+          phasicBlunt: 'At full malaise, all arousal pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. Narrows the phasic range — events produce smaller arousal spikes.',
+          posDomDamp: 'At full malaise, positive dominance pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. Compounds with the existing domScale (situational, halving dominance gains when valence ≤ 0).',
+          malaiseDominanceDrop: 'At full malaise, tonic dominance target drops to -this value. Default 0.4 = target -0.4. Shared across all unwell sources — produces the "low reactive dominance" pattern.',
+          malaiseRepairDamp: 'At full malaise, sleep self-repair is multiplied by (1 - this value). Default 0.5 = halved repair. So sickness and low-HP also make sleep less restorative, not just sleep debt.',
+          malaiseTonicLethargy: 'At full malaise, tonic VAD arousal target = -this value. Default 0.3 = target -0.3 (lethargy). Shared across all unwell sources (sleep debt + sickness + low HP). NOTE: this is the VAD arousal dimension (subjective emotional activation, as in Palmer 2023 and Mendl 2010) — NOT physiological hyperarousal (cortisol, sympathetic tone), which is real during sleep debt but is routed through asymmetric anhedonia (posValenceSuppress, Motomura 2013) and reactive dominance dampers (posDomDamp + malaiseDominanceDrop, Stenson 2021) instead. Conflating the two was a construct-validity error in earlier versions.',
+          malaiseValenceDrop: 'At full malaise, tonic valence target = -this value. Default 0.2 = target -0.2. Direct, symmetric push on baseline valence ("shifts negative"). Distinct from posValenceSuppress, which is the asymmetric pulse-side damper (only positive pulses shrink). Together they produce the table pattern "shifts negative; positive end attenuated" — the valence drop is symmetric, the anhedonia is asymmetric. Shared across all unwell sources.',
+          tonicRate: 'Slow pull of baseline toward the tonic target, per tick. Default 0.005 = ~1 minute real time to manifest at speed 1. Higher = faster (more phasic), lower = slower (more tonic).',
+          learnRate: 'How fast memory updates toward the actual outcome. Higher = each encounter shifts the expectation more. Default 0.3 = ~4 encounters to reach 80%.',
+          previewGain: 'Overall amplitude multiplier on anticipation pulses. When attention locks onto an object, the mood shifts based on the expected outcome from memory — same multi-pulse shape as the matching US event (spike + tail per dimension), at ~30% of its amplitude. Default 1 = strong-but-subtle anticipation; 0 = previews off.',
+          previewConfFloor: 'Memory confidence below this → no preview fires. Low-confidence expectations are not felt yet (curiosity / neophobia still drive the decision to investigate). Default 0.15 = below innate pre-seed conf of 0.3 is required to feel anything.',
+          previewValFloor: '|expected valence| below this → no preview fires. An object with no learned affective association does not produce anticipation. Default 0.05 = near-neutral entries are skipped.'
+        },
+        tp: { boldness: 'Shy ↔ Bold', exploration: 'Avoidant ↔ Exploratory', activity: 'Inactive ↔ Active (unused)', aggressiveness: 'Docile ↔ Aggressive (unused)', sociability: 'Solitary ↔ Sociable (unused)' }
+      },
+      cs: {
+        title: 'Laboratoř nálady',
+        val: 'Valence', aro: 'Aktivace', dom: 'Dominance', hun: 'Ukazatel hladu', hyd: 'Ukazatel hydratace', hlt: 'Zdraví', slp: 'Potřeba spánku', base: 'základ',
+        varh: 'Proměnné', vars: 'Zobrazit nebo skrýt panel proměnných', logh: 'Poslední události', logEmpty: 'Zatím žádné události.',
+        note: 'Přerušovaně = základ. Číslované štítky = události (které, říká seznam pod grafem; zkus i najet myší). Horní pruh = chování. Aktivace zahrnuje posun podle tělesných hodin. Zaškrtávátky vybereš, které čáry se kreslí.',
+        worldh: 'Prostředí', evh: 'Všechny události', parh: 'Parametry', cust: 'Vlastní událost',
+        wopt: 'Hodiny, světlo a rytmus', temph: 'Temperament',
+        surrEmpty: 'Nic v dohledu.',
+        memh: 'Paměť', memEmpty: 'Zatím žádné vzpomínky.',
+        besth: 'Typy objektů',
+        archName: 'název', archAdd: 'Přidat typ', archCreate: 'Vytvořit',
+        archSize: 'Velikost', archColor: 'Barva', archShape: 'Tvar', archUT: 'Výsledek',
+        custEventh: 'Uložit vlastní událost', custEventAdd: 'Přidat událost', custEventCreate: 'Vytvořit', custEventDesc: 'Vytvoř opakovatelné tlačítko události. Dopady na v/a/d tvoří výchozí pulzy (přes SHAPE); HP / potrava / voda jsou volitelné vedlejší efekty. Uložené události se objeví ve skupině „Vlastní události" pod běžnými tlačítky a přetrvají přes obnovení stránky.',
+        custEventName: 'název', custEventGroup: 'skupina', custEventV: 'valence', custEventA: 'aktivace', custEventD: 'dominance', custEventHP: 'hp', custEventFood: 'potrava', custEventWater: 'voda',
+        custEventGroupCustom: 'Vlastní události', custEventDelete: 'Smazat',
+        feat: {
+          size: { small: 'malé', medium: 'střední', large: 'velké' },
+          color: { dark: 'tmavé', red: 'červené', green: 'zelené', blue: 'modré', brown: 'hnědé' },
+          shape: { round: 'kulaté', angular: 'hranaté', animal: 'zvíře', plant: 'rostlina' }
+        },
+        fire: 'Spustit vlastní událost', rand: 'Náhodná šablona', pause: 'Pauza', resume: 'Pokračovat', reset: 'Resetovat',
+        custClear: 'Vyčistit frontu', custEmpty: 'Ve frontě nejsou žádné pulzy. Klikni na + pro přidání, pak uprav amp a τ přímo v položce.',
+        custAmp: 'amp', custTau: 'τ',
+        custAddFmt: 'Přidat pulz {dim}',   // text tlačítka pro přidání podle dimenze ("spike" navrhuje pouze nahoru; "pulz" je směrově neutrální a odpovídá terminologii v kódu)
+        refsh: 'Prameny použité v modelu', refsi: 'Každý z následujících článků je citován přímo v kódu nebo je základem některého pojmenovaného konceptu. Jsou seskupeny podle tématu — Struktura afektu (VAD), Učení a paměť, Dvouprocesový spánek, Ztráta spánku a afekt, Temperament — aby seznam zůstal přehledný i při dalším růstu. Řádek „where“ u každého záznamu ukazuje na kód, který danou myšlenku implementuje.',
+        refs: [
+          // -- Struktura afektu (VAD) --
+          {
+            topic: 'Struktura afektu (VAD)',
+            cite: 'Osgood, C. E., Suci, G. J., & Tannenbaum, P. H. (1957). The measurement of meaning. University of Illinois Press.',
+            desc: 'Poprvé identifikoval tři ortogonální faktory v afektivním jazyce — Evaluation (valence), Potency (dominance) a Activity (aktivace). Trojosý model V / A / D, který je v celé této simulaci, sahá až k této původní práci sémantického diferenciálu.',
+            where: 'Viz: tři dimenze nálady s.v / s.a / s.d a tříbarevná časová osa v drawTimeline().'
+          },
+          {
+            topic: 'Struktura afektu (VAD)',
+            cite: 'Mehrabian, A., & Russell, R. M. (1974). An approach to environmental psychology. MIT Press.',
+            desc: 'Formalizoval PAD model (Pleasure–Arousal–Dominance), kde dominance zachycuje vnímanou míru kontroly nebo moci v situaci (podřízený → dominantní). Proto simulace sleduje dominanci jako samostatnou dimenzi místo aby ji zahrnovala do valence.',
+            where: 'Viz: dimenze dominance s.d a ukazatel dominance vykreslený ve frame().'
+          },
+          {
+            topic: 'Struktura afektu (VAD)',
+            cite: 'Russell, J. A. (2003). Core affect and the psychological construction of emotion. Psychological Review, 110(1), 145-172.',
+            desc: 'Později degradoval dominanci na „periferní“ dimenzi a nechal jako „core affect“ jen valenci a aktivaci. To je verze, kterou pro zvířata přijal Mendl et al. (2010) — ale simulace si třetí osu ponechává (viz Bračić 2024 níže pro protiargument, který dominanci znovu integruje).',
+            where: 'Viz: drawMoodPlane() — rovina ukazuje jen valenci × aktivaci (pohled „core affect“); dominance žije v samostatném ukazateli vpravo.'
+          },
+          {
+            topic: 'Struktura afektu (VAD)',
+            cite: 'Mendl, M., Burman, O. H. P., Parker, R. M. A., & Paul, E. S. (2010). A new approach to modelling animal emotionality: the valence-arousal-dominance model. Reviews in the Neurosciences, 21(3-4), 167-184.',
+            desc: 'Rovina nálady (valence na ose x, aktivace na ose y) se čtyřmi kvadranty (nadšení / klid / smutek / úzkost) odpovídá obrázku 1 tohoto článku. Pravidlo „neprůzračné události“ — že nejednoznačný podnět (šustění v trávě) bere svou valenci z aktuální základní nálady — pochází z tabulky 1 téhož článku.',
+            where: 'Viz: drawMoodPlane() a pravidla EXTRA.amb / K.ambValence ve fireEvents().'
+          },
+          {
+            topic: 'Struktura afektu (VAD)',
+            cite: 'Bračić, A. (2024). Affective dominance in non-human animals: re-integrating dominance into animal affect research. Synthese, 203(4).',
+            desc: 'Argumentuje pro re-integraci dominance do výzkumu zvířecího afektu a definuje ji jako sebevyhodnocenou behaviorální kontrolu organismu — tedy jak schopné se cítí získávat odměny nebo překonávat tresty. Vychází z Bryantova rámce primární/sekundární kontroly z literatury lidské sebekontroly a rozšiřuje Mendlův prostor valence–aktivace na úplný VAD model pro zvířata. Reaktivně-dominantní a tonicky-dominantní mechanismy simulace (posDomDamp, malaiseDominanceDrop) motivuje právě tato re-integrace.',
+            where: 'Viz: skupina malaise-efektů v P (zejména posDomDamp a malaiseDominanceDrop) a škálování reaktivní dominance ve fireEvents() a previewPulse().'
+          },
+          // -- Učení a paměť --
+          {
+            topic: 'Učení a paměť',
+            cite: 'Rescorla, R. A., & Wagner, A. R. (1972). A theory of Pavlovian conditioning: Variations in the effectiveness of reinforcement and nonreinforcement. In A. H. Black & W. F. Prokasy (Eds.), Classical Conditioning II: Current Research and Theory (pp. 64-99). Appleton-Century-Crofts.',
+            desc: 'Pravidlo Rescorla-Wagner: očekávaný výsledek podmiňovaného podnětu se posouvá směrem ke skutečnému výsledku nepodmiňovaného podnětu, jejž předpovídá, s parametrem učební rychlosti α. To je přesně ta aktualizace v learnFromEvent(): entry.valence += P.learnRate × (imp.v − entry.valence). Tentýž α také při každém setkání zvyšuje spolehlivost paměti (entry.conf) — odtud „learning confidence“, která rozhoduje, zda je očekávání dost silné na to, aby spustilo předstihový pulz (previewConfFloor).',
+            where: 'Viz: learnFromEvent() pro běžný průměr; P.learnRate pro knoflík α; previewPulse() pro práh spolehlivosti; panel paměti, který ukazuje naučené dvojice (valence, conf).'
+          },
+          // -- Dvouprocesový spánek --
+          {
+            topic: 'Dvouprocesový spánek',
+            cite: 'Borbély, A. A. (1982). A two process model of sleep regulation. Human Neurobiology, 1(3), 195-204.',
+            desc: 'Model spánku je klasický dvouprocesový model: Process S (homeostatický spánkový tlak, roste během bdění, klesá během spánku, oboje exponenciální) a Process C (cirkadiánní biologické hodiny, modulují prahy spánku / bdění a zobrazovanou aktivaci). Formulace „dvouprocesový model spánku“ v kódu odkazuje na tento článek.',
+            where: 'Viz: stepSleepPressure() pro Process S, stepBodyClock() pro Process C a stepSleepWake() pro to, jak společně rozhodují o usínání a probuzení.'
+          },
+          // -- Ztráta spánku a afekt (malaise efekty) --
+          {
+            topic: 'Ztráta spánku a afekt',
+            cite: 'Stenson, A. R., Kurinec, C. A., et al. (2021). Total sleep deprivation reduces top-down regulation of emotion without altering bottom-up affective processing. PLOS ONE, 16(9), e0256983.',
+            desc: 'Spánková deprivace narušuje top-down emoční regulaci (strana „reaktivní dominance“ modelu), zatímco bottom-up afektivní reaktivita zůstává nedotčena. Motivuje malaise-řízený parametr posDomDamp (pozitivní zisky dominance se při nevolnosti zplošťují) a tonický cíl malaiseDominanceDrop — oba zachycují snížené vnímané sebeřízení během spánkového dluhu.',
+            where: 'Viz: posDomDamp a malaiseDominanceDrop ve skupině malaise-efektů; stejné tlumiče se aplikují na skutečné události ve fireEvents() a na předstihy v previewPulse().'
+          },
+          {
+            topic: 'Ztráta spánku a afekt',
+            cite: 'Palmer, C. A., Bower, J. L., Cho, K. W., Clementi, M. A., Lau, S., Oosterhoff, B., & Alfano, C. A. (2023). Sleep loss and emotion: A systematic review and meta-analysis of over 50 years of experimental research. Psychological Bulletin, 150(4), 440-463.',
+            desc: 'Meta-analýza 50+ let experimentální práce. Potvrzuje čtyři robustní vzorce, které simulace reprodukuje přes skupinu malaise-efektů: potlačení pozitivní valence (anhedonie → posValenceSuppress), zúžené fázické rozpětí aktivace (→ phasicBlunt), snížená tonická VAD aktivace (→ malaiseTonicLethargy — NE fyziologický hyperarousal, který je směrován jinam přes anhedonii + tlumiče reaktivní dominance) a celkové zhoršení nálady se spánkovou ztrátou (→ malaiseValenceDrop pro přímý posun, plus mechanizmus depfactor pro smrštění baseline aktivace a dominance spouštěné nízkou valencí).',
+            where: 'Viz: posValenceSuppress, phasicBlunt, malaiseTonicLethargy a malaiseValenceDrop ve skupině malaise-efektů; mechanizmus depfactor v moveBaseline().'
+          },
+          {
+            topic: 'Ztráta spánku a afekt',
+            cite: 'Motomura, Y., Kitamura, S., Oba, K., Terasawa, Y., Enomoto, M., Katayose, Y., et al. (2013). Sleep debt elicits negative emotional reaction through diminished amygdala-anterior cingulate functional connectivity. PLOS ONE, 8(2), e56578.',
+            desc: 'Spánkový dluh produkuje silnější negativní emoční reakce přes sníženou funkční konektivitu amygdala–přední cingulum — tedy méně top-down modulace amygdaly. Podrývá asymetrický vzorec, kdy pozitivní afekt je během spánkové ztráty tlumen, ale negativní zůstává zachován (nebo zesílen), což je reprodukováno jako faktor (1 − posValenceSuppress × malaise) aplikovaný pouze na pozitivní pulzy valence, nikdy na záporné.',
+            where: 'Viz: asymetrický tlumič valence ve fireEvents() — pouze amp > 0 dostává faktor (1 − posValenceSuppress × malaise); záporné pulzy procházejí bez změny.'
+          },
+          // -- Temperament --
+          {
+            topic: 'Temperament',
+            cite: 'Réale, D., Reader, S. M., Sol, D., McDougall, P. T., & Dingemanse, N. J. (2007). Integrating animal temperament within ecology and evolution. Biological Reviews, 82(2), 291-318.',
+            desc: 'Pět os temperamentu (odvážnost, zvídavost, aktivita, agresivita, společenskost) je převzato z tohoto přehledu. Jsou vystaveny jako větev parametrů, ale simulace je zatím nečte — jsou vyhrazeny pro budoucí škálování vah chování.',
+            where: 'Viz: objekt TEMP a větev temperamentu vytvořená v build().'
+          }
+        ],
+        circ: 'Aktivace sleduje tělesné hodiny', circTip: 'vypnutí odstraní jen posun aktivace; hodiny dál řídí spánek',
+        clock: 'Pustit hodiny', clockTip: '1 simulovaná hodina ≈ {s} s',
+        sun: 'Sluneční světlo', sunTip: 'vypnuto = trvalá tma, tělesné hodiny běží volně',
+        light: 'Světlo', dark: 'tma', bright: 'jasno', rest: 'odpočatý', tired: 'unavený', debt: 'Spánkový dluh', malaiseLabel: 'malaise', tempg: 'Teplota', cold: 'chlad', hot: 'horko',
+        cv: 'Dopad na valenci', ca: 'Dopad na aktivaci', cd: 'Dopad na dominanci',
+        neutral: 'Neutrální stav', q: ['Nadšení', 'Klid', 'Smutek', 'Úzkost'],
+        pos: 'kladná', neg: 'záporná', hi: 'vysoká aktivace', lo: 'nízká aktivace',
+        sb: '−1 podřízený', dm: 'dominantní +1', sv: '0 hladový', fl: 'sytý 1', dh: '0 dehydrovaný', hy: 'hydratovaný 1', hl0: '0 těžce nemocný', hl1: 'zdravý 1',
+        depl: 'Vyčerpání: základní valence je pod prahem, takže se zmenšuje základní aktivace a dominance.',
+        sick: 'Nemoc: zdraví pomalu klesá.',
+        hint: 'Tečka = aktuální nálada, přerušovaný kroužek = základ.',
+        amb: 'reakce závisí na náladě',
+        plane: 'Rovina valence a aktivace', domg: 'Ukazatel dominance', hung: 'Ukazatel hladu', hydg: 'Ukazatel hydratace', hltg: 'Ukazatel zdraví', litg: 'Úroveň světla', slpg: 'Ukazatel potřeby spánku',
+        st: { idle: 'Odpočívá', foraging: 'Hledá potravu', socialising: 'Stýká se', explore: 'Zkoumá', nrem: 'Spánek NREM', rem: 'Spánek REM', approach_object: 'Přibližuje se', flee_object: 'Prchá před objektem' },
+        eg: { threat: 'Hrozby', food: 'Potrava / energie', social: 'Společenské', env: 'Prostředí / novost', body: 'Tělo', sleep: 'Spánek', neutral: 'Neutrální' },
+        ev: {
+          predator_attack: 'Útok predátora',
+          ate_food: 'Nakrmit',
+          social_win: 'Vítězství v souboji', social_loss: 'Prohra v souboji', grooming_contact: 'Péče o srst',
+          loud_noise: 'Vylekat', new_territory: 'Nové území', rustle: 'Šustění v trávě',
+          pain: 'Zranit', illness_onset: 'Onemocnět', recovery: 'Uzdravit', drank_water: 'Napít',
+          fell_asleep: 'Usínání', woke_up: 'Přirozené probuzení', sleep_interrupted: 'Přerušení spánku'
+        },
+        gm: 'Dynamika nálady', gn: 'Potřeby', gs: 'Spánek', gw: 'Prostředí',
+        gh: 'Zdraví', gb: 'Chování', gmf: 'Malaise efekty', gl: 'Učení', gpv: 'Předstihové pulzy',
+        p: {
+          decay: 'Rychlost doznívání', plen: 'Délka dopadu události ×', drift: 'Rychlost posunu základu', pers: 'Citlivost valence', thr: 'Práh vyčerpání', depfactor: 'Faktor vyčerpání',
+          hrate: 'Ubývání sytosti', wrate: 'Ubývání hydratace', hmood: 'Vliv hladu a žízně na náladu', foodQuality: 'Kvalita potravy',
+          sleep: 'Spánek vyžaduje aktivaci pod', krise: 'Nárůst potřeby spánku (za h)', kdecay: 'Pokles potřeby spánku (za h)', camp: 'Rozkmit prahů tělesných hodin', cycle: 'Délka spánkového cyklu (min)', expect: 'Očekávaný spánek (h/den)', nightlen: 'Délka noci pro cyklus (h)', repair: 'Obnova nálady spánkem', wakeCooldown: 'Cooldown po probuzení (ticků)',
+          speed: 'Rychlost simulace', hour: 'Hodina dne', amp: 'Síla denního rytmu aktivace', tau: 'Volně běžící perioda (h)', ent: 'Synchronizace světlem', rate: 'Četnost náhodných událostí ×',
+          sleepHeal: 'Hojení spánkem', sickSleepHeal: 'Hojení spánkem při nemoci', illDrain: 'Úbytek při nemoci',
+          sticky: 'Lepkavost chování', decideevery: 'Interval rozhodování (ticků)', learnRate: 'Rychlost učení (\u03b1)',
+          malaiseOffset: 'Přímé posunutí malaise', posValenceSuppress: 'Anhedonie (potlačení poz. valence)', phasicBlunt: 'Tlumení fázické', posDomDamp: 'Tlumení reaktivní dominance', malaiseDominanceDrop: 'Tonický pokles dominance', malaiseRepairDamp: 'Tlumení hojení spánkem', malaiseTonicLethargy: 'Tonický pokles VAD aktivace', malaiseValenceDrop: 'Tonický pokles valence', tonicRate: 'Rychlost toniku',
+          previewGain: 'Amplituda předstihu ×', previewConfFloor: 'Práh spolehlivosti předstihu', previewValFloor: 'Práh |valence| předstihu'
+        },
+        pd: {
+          decay: 'Rychlost návratu pomalé vrstvy nálady k základu. Vyšší = rychlejší zotavení z vlivů chování a potřeb.',
+          plen: 'Násobitel doby doznívání každého pulzu události. Vyšší = události v náladě přetrvávají déle.',
+          drift: 'Rychlost, jakou základ nálady sleduje aktuální prožívanou náladu během bdění. Vyšší = základ následuje náladu těsněji.',
+          pers: 'Multiplikátor personality na dopady na valenci. Vyšší = události ovlivňují valenci silněji.',
+          thr: 'Základní valence pod tímto prahem spouští vyčerpání: základní aktivace a dominance se každý tick zmenšují.',
+          depfactor: 'Multiplikátor za tick na základní aktivaci a dominanci při vyčerpání. Nižší = vyčerpání odčerpává rychleji. (Přejmenováno z „dep“ pro odlišení od spánkové deprivace s.dep.)',
+          hrate: 'Úbytek sytosti za tick při multiplikátoru 1 (plná → prázdná za ~200 s při výchozím).',
+          wrate: 'Úbytek hydratace za tick při multiplikátoru 1 (žízeň běží rychleji než hlad).',
+          hmood: 'Jak silně prázdný hlad nebo žízeň stlačuje valenci dolů a zvyšuje aktivaci.',
+          foodQuality: 'Jak moc zdroj potravy doplňuje hlad, když agent jí. 0 = prázdné kalorie, 1 = maximálně výživné.',
+          sleep: 'Agent může usnout pouze tehdy, když zobrazená aktivace je pod tímto prahem.',
+          krise: 'Rychlost nárůstu spánkového tlaku během bdění (za simulovanou hodinu).',
+          kdecay: 'Rychlost poklesu spánkového tlaku během spánku (za simulovanou hodinu).',
+          camp: 'Jak daleko tělesné hodiny kmitají prahy spánku / bdění během dne.',
+          cycle: 'Délka jednoho cyklu NREM + REM v simulovaných minutách.',
+          expect: 'Očekávaný spánek za den (sim hodiny). Definuje cíl spánkového dluhu.',
+          nightlen: 'Jak dlouhá je „plná noc“ pro progreszi ultradiánního cyklu (poměr NREM/REM přes noc). Oddělené od „očekávaného spánku“, aby cíl dluhu a reference cyklu mohly být různé.',
+          repair: 'Za tick, jak rychle spánek přitahuje základní náladu zpět k odpočinku (škálováno fází spánku).',
+          wakeCooldown: 'Ticků než agent může znovu usnout po přerušeném probuzení. Vyšší = méně znovuusínání, více spirál nespavosti při opakovaném hluku.',
+          speed: 'Multiplikátor rychlosti simulace. 1 = 10 ticků/s, 1 sim hodina ≈ 2 s.',
+          hour: 'Hodina dne světa (0..24). Táhni, když jsou hodiny pauzovány; po spuštění se vrací zpět.',
+          amp: 'Tělesné hodiny posunují zobrazenou aktivaci až o ±tolik.',
+          tau: 'Volně běžící perioda tělesných hodin v hodinách (myši ~23.5, lidé ~24.2).',
+          ent: 'Jak silně světlo přitahuje tělesné hodiny k času světa (za sim hodinu).',
+          rate: 'Multiplikátor na šanci každé náhodné události.',
+          sleepHeal: 'Zdraví získané za tick během spánku (bez nemoci).',
+          sickSleepHeal: 'Zdraví získané za tick během spánku (s nemocí). Výchozí je ~1/6 sleepHeal, takže nemoc stále postupuje i během spánku.',
+          illDrain: 'Zdraví ztracené za tick při nemoci. Spolu se sleepHeal a sickSleepHeal rozhoduje, zda se agent uzdravuje nebo pomalu upadá.',
+          sticky: 'Jak silně aktuální chování odolává změně. Want aktuálního stavu je v loterii násobeno tímto. Vyšší = stabilní chování, nižší = více nervózní.',
+          decideevery: 'Ticků mezi rozhodnutími o chování (loterie běží každých N ticků, nebo ihned při predátorovi, kdy agent neprchá). Nižší = více reaktivní, vyšší = více zvažující.',
+          malaiseOffset: 'Přidává konstantní přírůstek malaise nad vypočítanou hodnotu (ze spánkového dluhu + nemoci + nízkého zdraví). Umožňuje simulovat „agent je celkově nemožný" bez spouštění zdrojů. Při 0 normální chování; při 1 plná malaise bez ohledu na zdroje.',
+          posValenceSuppress: 'Při plné malaise se pozitivní valenční pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. To je „anhedonie" — pozitivní události se při nemožení cítí hůře.',
+          phasicBlunt: 'Při plné malaise se všechny aktivizační pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. Zužuje fázický rozsah — události produkují menší aktivizační špičky.',
+          posDomDamp: 'Při plné malaise se pozitivní dominance pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. Slučuje se se stávajícím domScale (situační, poloviční zisky dominance při valenci ≤ 0).',
+          malaiseDominanceDrop: 'Při plné malaise tonický cíl dominance klesne na -toto. Výchozí 0.4 = cíl -0.4. Společné pro všechny zdroje nevolnosti — vytváří vzor „nízké reaktivní dominance".',
+          malaiseRepairDamp: 'Při plné malaise se sebeoprava spánkem násobí (1 - toto). Výchozí 0.5 = poloviční oprava. Takže nemoc a nízké zdraví také dělají spánek méně regenerační, nejen spánkový dluh.',
+          malaiseTonicLethargy: 'Při plné malaise tonický cíl VAD aktivace = -toto. Výchozí 0.3 = cíl -0.3 (letargie). Společné pro všechny zdroje nevolnosti (spánkový dluh + nemoc + nízké zdraví). POZNÁMKA: tato je dimenze VAD aktivace (subjektivní emoční aktivace, viz Palmer 2023 a Mendl 2010) — NE fyziologický hyperarousal (kortisol, sympatikus), který je při spánkovém dluhu skutečně přítomen, ale je směrován přes asymetrickou anhedonii (posValenceSuppress, Motomura 2013) a tlumiče reaktivní dominance (posDomDamp + malaiseDominanceDrop, Stenson 2021). Záměna těch dvou byla chybou konstrukt-validity v dřívějších verzích.',
+          malaiseValenceDrop: 'Při plné malaise tonický cíl valence = -toto. Výchozí 0.2 = cíl -0.2. Přímý, symetrický posun základní valence („posun k záporné"). Odlišné od posValenceSuppress, což je asymetrický tlumič na straně pulzů (zmenšuje jen pozitivní pulzy). Spolu tvoří vzor z tabulky „posun k záporné; pozitivní konec potlačen" — pokles valence je symetrický, anhedonie asymetrická. Společné pro všechny zdroje nevolnosti.',
+          tonicRate: 'Pomalé přitahování baseline k tonickému cíli, za tick. Výchozí 0.005 = ~1 minuta reálného času pro manifestaci při rychlosti 1. Vyšší = rychlejší (více fázické), nižší = pomalejší (více tonické).',
+          learnRate: 'Jak rychle se paměť aktualizuje směrem ke skutečnému výsledku. Vyšší = každé setkání posouvají očekávání více. Výchozí 0.3 = ~4 setkání k dosažení 80 %.',
+          previewGain: 'Celkový násobitel amplitudy předstihových pulzů. Když pozornost ulpí na objektu, nálada se posune podle očekávaného výsledku z paměti — stejný více-pulzní tvar jako odpovídající US událost (špička + plyn na každé dimenzi), při ~30 % její amplitudy. Výchozí 1 = silná, ale jemná antécipe; 0 = předstihy vypnuty.',
+          previewConfFloor: 'Spolehlivost v paměti pod tímto → žádný předstih se neaktivuje. Nízkospolehlivá očekávání se ještě necítí (rozhodnutí prozkoumat stále řídí zvědavost / nefobie). Výchozí 0.15 = pod úroveň vrozeného pre-seedu 0.3 je nutné k tomu, aby se něco cítilo.',
+          previewValFloor: '|očekávaná valence| pod tímto → žádný předstih. Objekt bez naučené afektivní asociace nevytváří antécipi. Výchozí 0.05 = téměř neutrální záznamy se přeskakují.'
+        },
+        tp: { boldness: 'Plachý ↔ Odvážný', exploration: 'Vyhýbavý ↔ Zvídavý', activity: 'Nečinný ↔ Aktivní (nepoužito)', aggressiveness: 'Mírný ↔ Agresivní (nepoužito)', sociability: 'Samotářský ↔ Společenský (nepoužito)' }
+      }
+    };
+    let lang = 'en';      // English is the default (since that's the language of the papers cited)
+    let t = T[lang];      // t = text for the active language
+
+    /* ============ Parameters (the sliders) ============ */
+    // CONFIG = the immutable slider defaults — what Reset restores. (Hour and sun are NOT in here:
+    // they are world state, not parameters — their defaults live in WORLD_DEFAULTS below.)
+    // A tick = one simulation step = 3 sim minutes = 0.1 s (at speed 1).
+    // Sleep rates are per SIM HOUR (the pseudocode's per-minute rates would saturate in a second at this time scale).
+    const CONFIG = Object.freeze({
+      // -- mood dynamics --
+      decay: .02,    // fraction of the gap to baseline that closes each tick, for the slow layer (behaviour and needs effects)
+      plen: 1,      // how long every event pulse lasts, as a multiplier (1 = the fade times in SHAPE and EXTRA)
+      drift: .002,   // how fast baseline follows current mood while awake (much slower than decay)
+      pers: 1,       // personality multiplier on valence impacts
+      thr: -.3,      // depletion starts when baseline valence is below this
+      depfactor: .998, // per-tick multiplier on baseline arousal and dominance while depleted (awake only). Renamed from "dep" to disambiguate from sleep deprivation s.dep.
+      // -- health (new group) --
+      sleepHeal: .003, sickSleepHeal: .0005, illDrain: .0006,   // per-tick health: asleep, asleep+sick, sick drain
+      wakeCooldown: 30,      // ticks before the agent may fall asleep again after an interrupted wake
+      // -- behaviour (new group) --
+      sticky: 3, decideevery: 15,   // behaviour-resistance weight, ticks between awake-behaviour lotteries
+      // -- needs --
+      hrate: .0005,  // hunger meter lost per tick at multiplier 1 (full to empty in ~200 s)
+      wrate: .001,   // hydration meter lost per tick at multiplier 1 (thirst runs faster than hunger)
+      hmood: 1,      // how hard an empty hunger or hydration meter pushes valence down and arousal up
+      foodQuality: .6,  // how much the food source refills hunger when the agent eats (was a world control, now a parameter)
+      // -- sleep --
+      sleep: .2,     // the agent can only fall asleep while arousal is below this
+      krise: .06,    // Process S rise rate while awake (per sim hour)
+      kdecay: .16,   // Process S decay rate while asleep (per sim hour)
+      camp: .12,     // how far the body clock (Process C) moves the sleep/wake thresholds
+      cycle: 120,    // length of one NREM+REM cycle (sim minutes)
+      expect: 8,     // expected sleep per day (sim hours): scales REM growth and defines sleep debt
+      nightlen: 8,   // how long a "full night" is for the ultradian cycle progression (separate from expect, so the debt target and cycle reference can differ)
+      repair: .007,  // per tick, how fast sleep pulls the baseline back to HOME (scaled by sleep stage)
+      // -- world and clock --
+      speed: 1,      // simulation speed multiplier
+      amp: .3,       // body clock moves arousal by up to +/- this much
+      tau: 23.5,     // free-running body-clock period in hours (mice ~23.5)
+      ent: .25,      // how strongly light pulls the body clock toward world time (per sim hour)
+      rate: 1,       // multiplier on every random-event chance (see RANDOM)
+      // -- malaise effects --
+      malaiseOffset: 0,    // direct malaise boost — for "messing with malaise directly"; adds to the computed value (sleep dep + sickness + low HP)
+      posValenceSuppress: .4, phasicBlunt: .4, posDomDamp: .4,   // anhedonia, blunted phasic, reactive dominance (all driven by malaise)
+      malaiseDominanceDrop: .4, malaiseRepairDamp: .5,          // tonic dominance drop, sleep repair damper
+      malaiseTonicLethargy: .3, malaiseValenceDrop: .2,         // shared tonic arousal drop + baseline valence drop (both driven by malaise — all unwell sources pull VAD arousal down and valence negative; physiological hyperarousal is NOT routed here, see posValenceSuppress / posDomDamp instead)
+      tonicRate: .005,                                         // slow pull of baseline toward tonic target (~1 min real time at speed 1)
+      // -- learning  --
+      learnRate: .3,           // Rescorla-Wagner learning rate: how fast memory shifts toward actual outcome
+      // -- preview pulses  --
+      previewGain: 1,          // overall amplitude multiplier on anticipation pulses (1 = ~30% of the matching US event)
+      previewConfFloor: .15,   // memory confidence below this → no preview fires (low-conf expectations aren't felt yet)
+      previewValFloor: .05     // |expected valence| below this → no preview fires (no learned association = nothing to anticipate)
+    });
+    // P = the LIVE slider values (mutable). init() does Object.assign(P, CONFIG) on Reset so sliders return to defaults.
+    const P = { ...CONFIG };
+
+    // WORLD_DEFAULTS = defaults for world state. (Hour and sun are sim state — they live in W at runtime,
+    // not in P. They have a slider / checkbox attached, so their defaults need a home; this is it.)
+    const WORLD_DEFAULTS = Object.freeze({ hour: 9, sun: true });
+
+    // getParam / setParam = read / write a slider-controlled value, regardless of whether it lives in P or W.
+    // (Currently only 'hour' lives in W; everything else is in P. If you add more slider-controlled world
+    // state later, add it to W + branch on its key here.)
+    const getParam = k => k === 'hour' ? W.hour : P[k];
+    const setParam = (k, v) => {
+      if (k === 'hour') { W.hour = v; deriveWorld(); }   // recompute light/temp so the gauge stays live while paused
+      else P[k] = v;
+    };
+    // SLIDERS = slider settings: [key, min, max, step, group]. Groups: 0 mood, 1 needs, 2 sleep, 3 environment, 4 health, 5 behaviour, 6 malaise effects, 7 learning, 8 preview pulses.
+    const SLIDERS = [['decay', .002, .1, .002, 0], ['plen', .25, 4, .25, 0], ['drift', 0, .02, .0005, 0], ['pers', .2, 2, .05, 0], ['thr', -.9, 0, .05, 0], ['depfactor', .98, 1, .0005, 0],
+    ['hrate', .0001, .003, .0001, 1], ['wrate', .0002, .004, .0002, 1], ['hmood', 0, 3, .1, 1], ['foodQuality', 0, 1, .05, 1],
+    ['sleep', -.5, 1, .05, 2], ['krise', .01, .3, .005, 2], ['kdecay', .02, .6, .01, 2], ['camp', 0, .3, .01, 2], ['amp', 0, .6, .05, 2], ['tau', 22, 26, .1, 2], ['ent', 0, 1, .05, 2], ['cycle', 20, 240, 10, 2], ['expect', 4, 12, .5, 2], ['nightlen', 4, 12, .5, 2], ['repair', 0, .03, .001, 2], ['wakeCooldown', 0, 100, 5, 2],
+    ['speed', .05, 5, .05, 3], ['hour', 0, 23.95, .05, 3], ['rate', 0, 3, .1, 3],
+    ['sleepHeal', 0, .02, .001, 4], ['sickSleepHeal', 0, .005, .0001, 4], ['illDrain', 0, .005, .0001, 4],
+    ['sticky', 1, 10, .5, 5], ['decideevery', 1, 60, 1, 5],
+    ['malaiseOffset', 0, 1, .05, 6], ['posValenceSuppress', 0, 1, .05, 6], ['phasicBlunt', 0, 1, .05, 6], ['posDomDamp', 0, 1, .05, 6], ['malaiseDominanceDrop', 0, 1, .05, 6], ['malaiseRepairDamp', 0, 1, .05, 6], ['malaiseTonicLethargy', 0, 1, .05, 6], ['malaiseValenceDrop', 0, 1, .05, 6], ['tonicRate', 0, .02, .001, 6],
+    ['learnRate', .05, 1, .05, 7],
+    ['previewGain', 0, 2, .05, 8], ['previewConfFloor', 0, .5, .05, 8], ['previewValFloor', 0, .3, .05, 8]];
+
+    /* ============ Constants that are not sliders ============ */
+    const DT = .05;                          // sim hours per tick (3 minutes)
+    const UP = .7, LOW = .25;                // base upper (fall asleep) and lower (wake up) thresholds for sleep pressure
+    const HOME = { v: .15, a: .3, d: .2 };        // the resting baseline mood that sleep repairs toward (also the starting baseline)
+    // K = the magic numbers that used to be scattered through the code, each with what it means.
+    const K = {
+      ambValence: .8, ambArousal: .2, ambArousalBase: .3,   // ambiguous events: valence = .8 x baseline valence; arousal = .2 + .3 x baseline arousal
+      domGainHalf: .5,         // dominance GAINS are multiplied by this while valence is not positive (situational: depends on current mood)
+      deprivedBurn: .5,        // hunger loss is up to 50% faster at full sleep deprivation (per-state, sleep-debt-specific)
+      thirstFromHunger: .5,    // thirst is up to 50% faster when starving
+      tempIdeal: 20, tempRange: 15,                        // temperature comfort is 1 at 20 C and 0 at 15 degrees away
+      coldBurn: .001, coldStress: .3, coldValence: .002,    // extra hunger per tick at zero comfort; below comfort .3, valence drops this much per tick
+      needFloor: .4, needValence: .004, needArousal: .002  // a meter below .4 starts to hurt: this much valence down and arousal up per tick at empty
+      // (malaise-driven asymmetries + tonic arousal moved to P — now user-tunable under "Malaise effects")
+    };
+
+    /* ============ Events ============ */
+    // Each row: [group, key, valence impact, arousal impact, dominance impact].
+    // Impact on the mood = impact x salience, where salience is CALCULATED dynamically in fireEvents (max of |impacts|, or max of |pulse amps| for events with custom pulses) — no longer hardcoded per event.
+    // (The rustle row's impacts are ignored: it is "ambiguous", see EXTRA.)
+    const RAW = [
+      ['threat', 'predator_attack', -1, 1, -1],
+      ['food', 'ate_food', .7, -.2, .3],
+      ['social', 'social_win', .4, .5, .7], ['social', 'social_loss', -.4, .3, -.7],
+      ['social', 'grooming_contact', .4, -.3, .1],
+      ['env', 'loud_noise', -.3, .7, -.2], ['env', 'new_territory', .2, .6, .1], ['env', 'rustle', 0, 0, 0],
+      ['body', 'pain', -.8, .6, -.3], ['body', 'illness_onset', -.5, -.4, -.3], ['body', 'recovery', .4, .2, .2], ['body', 'drank_water', .3, -.1, .1],
+      ['sleep', 'fell_asleep', .2, -.8, .1], ['sleep', 'woke_up', .1, .5, .1], ['sleep', 'sleep_interrupted', -.4, .6, -.2]
+    ];
+    // EXTRA = optional extra fields per event, kept as data next to the table above:
+    //   amb = ambiguous: impact comes from the baseline mood (Mendl et al. 2010, Table 1).
+    //   food / water = how much of the hunger / hydration meter it refills.   hp = health change.
+    //   pulses = a list of {dim, amp, tau} that replaces the default pulses made from the impacts (see SHAPE below).
+    //   act(w, s) = what the event does to the world w or the agent s. Manual clicks and random rows both run it.
+    const EXTRA = {
+      rustle: { amb: true, hide: true },   // hidden from grid. Textbook ambiguous stimulus (Mendl 2010 Table 1) — manual/custom only.
+      ate_food: {
+        food: .6,                    // refills hunger × P.foodQuality on fire
+        pulses: [{ dim: 'v', amp: .7, tau: 5 }, { dim: 'v', amp: .2, tau: 200 }, { dim: 'a', amp: -.2, tau: 10 }, { dim: 'd', amp: .3, tau: 50 }]
+      },   // a joy spike, a long satisfied tail, a quick calm-down
+      drank_water: { water: .6 },
+      predator_attack: {
+        hp: -.3,                    // the actual encounter — US for TYPE_TO_US.predator on approach.
+        pulses: [{ dim: 'v', amp: -1, tau: 5 }, { dim: 'v', amp: -.25, tau: 500 }, { dim: 'a', amp: 1, tau: 10 }, { dim: 'a', amp: .2, tau: 200 }, { dim: 'd', amp: -1, tau: 30 }, { dim: 'd', amp: -.3, tau: 400 }]
+      },   // a sharp jolt, then fear that lingers for minutes
+      pain: { hp: -.2 },
+      illness_onset: { hp: -.1, act: (w, s) => { s.ill = true; } },
+      recovery: { hp: .1, act: (w, s) => { s.ill = false; } }
+    };
+    const EVENTS = RAW.map(([g, k, v, a, d]) => ({ g, k, v, a, d, ...EXTRA[k] }));   // g group, k key, v/a/d impacts. Salience is calculated dynamically in fireEvents (max of |v|/|a|/|d|, or max of |pulse amps| if the event has custom pulses).
+    // SHAPE = the default pulses for an event without its own `pulses`, built from its v / a / d impacts.
+    // Each dimension is a list of [share of the impact, tau in ticks]. Valence = a quick spike plus a slow tail; arousal fades fastest; dominance in between.
+    const SHAPE = { v: [[.6, 8], [.4, 150]], a: [[1, 15]], d: [[1, 60]] };
+    const EVENT_BY_KEY = Object.fromEntries(EVENTS.map(e => [e.k, e]));                  // look an event up by its key
+
+    // EV = frozen map of event-key -> event-key string. Use EV.predator_attack (not the
+    // string literal 'predator_attack') everywhere outside RAW / EVENTS / EXTRA (which are
+    // the source-of-truth definitions and can't be "wrong" by construction). EV gives:
+    //   (a) editor autocomplete — typing EV. shows the list of available event keys,
+    //   (b) refactor support — rename in RAW and your IDE flags every reference,
+    //   (c) discoverability — one place to see all event keys at a glance.
+    // Caveat: in plain JS (no TypeScript / no checkJs), EV.predator_atkkack is still
+    // `undefined` at runtime, same as the string-literal typo. The protection is editor-time
+    // only; pair with checkJs / JSDoc-typed EV for static analysis.
+    const EV = Object.freeze(Object.fromEntries(EVENTS.map(e => [e.k, e.k])));
+
+    // (TYPE_TO_US removed — each ARCHETYPES entry now carries its own `events: [EV.xxx]` array,
+    //  so stepApproach reads target.events directly. No more type→events indirection.)
+
+    // Temperament: set by YOU, never changed by the simulation. Boldness + exploration are read by the curiosity/neophobia
+    // formulas in decide() and ST.approach_object (via the curiosity() helper below). Activity / aggressiveness / sociability
+    // are passed to rules as c.temperament but not read yet — reserved for future scaling of behaviour weights.
+    // Axes after Réale et al. 2007, each 0..1 with 0.5 in the middle.
+    const TEMP = { boldness: .5, exploration: .5, activity: .5, aggressiveness: .5, sociability: .5 };
+
+    /* ============ Random events ============ */
+    // Things that can happen by themselves. To add one, add a row:
+    //   id     = a name for you
+    //   event  = key of the event to fire (see RAW). Optional: a row can change the world without firing anything
+    //   chance = probability per tick (10 ticks a second at speed 1), multiplied by the "random event rate" slider
+    //   hp     = optional: true multiplies the chance by the agent's health (sick agents are worse at finding and winning)
+    //   when   = the dependencies: a function of c that must be true. c.world = the environment, everything else = the agent
+    //   act    = optional: act(w, s) changes the world w or the agent s when the row triggers (the fired event's own act runs too)
+    const RANDOM = [
+      // Food, water, and predators spawn as surrounding objects (SPAWN_RATES); US events fire via archetype.events on approach.
+      // social
+      { id: 'conspecific_arrives', chance: .006, when: c => c.world.conspecifics === 0 && !c.asleep, act: w => { w.conspecifics = 1; } },
+      { id: 'conspecific_leaves', chance: .008, when: c => c.world.conspecifics > 0, act: w => { w.conspecifics--; } },
+      { id: 'social_win', event: EV.social_win, chance: .007, hp: true, when: c => c.state === 'socialising' && c.world.conspecifics > 0 },
+      { id: 'social_loss', event: EV.social_loss, chance: .010, when: c => c.state === 'socialising' && c.world.conspecifics > 0 },
+      { id: 'grooming', event: EV.grooming_contact, chance: .004, when: c => c.state === 'idle' && c.world.conspecifics > 0 },
+      // body (illness: see applyHealth for the full list of places it lives)
+      { id: 'illness', event: EV.illness_onset, chance: .001, when: c => !c.asleep && !c.ill },
+      { id: 'recover', event: EV.recovery, chance: .004, when: c => c.ill },
+      // environment
+      { id: 'new_territory', event: EV.new_territory, chance: .005, when: c => c.state === 'explore' },
+      // loud noise: awake, it is just a noise. Asleep, it only registers (the mood hit) if it also wakes the sleeper.
+      { id: 'loud_noise', event: EV.loud_noise, chance: .002, when: c => !c.asleep },
+      { id: 'noise_wakes', event: EV.loud_noise, chance: .0006, when: c => c.asleep, act: () => wake(false) },
+      { id: 'noise_stirs', chance: .0014, when: c => c.asleep, act: (w, s) => { s.a += .15; } }   // the other 70% of noises that reach a sleeper: it stirs (arousal bump) but sleeps on
+    ];
+
+    /* ============ Behaviour state machine ============ */
+    // To add a behaviour, add one entry. Fields (all optional except col):
+    //   col = chart colour. hunger = multiplier on hunger AND thirst loss (1 if missing). impact = multiplier on how hard events hit.
+    //   push = added to the mood every tick, e.g. {v:.004}. tug = pulled toward a target every tick, e.g. {v:[target, strength]}.
+    //   want = how much the agent wants this state right now. can = gate to ENTER it. stay = gate to REMAIN in it.
+    //   sleep:true = a sleep stage: chosen by the sleep model below, never by decide(). repair = how strongly this stage heals the baseline.
+    // c = what the rules can see, split into the agent's own state and the world:
+    //   agent: c.h hunger meter, c.wt hydration meter, c.hp health, c.ill, c.v valence, c.a arousal (as displayed), c.d dominance,
+    //          c.sat "full enough" level, c.state behaviour name, c.asleep, c.temperament (boldness + exploration read by curiosity() helper; others reserved)
+    //   world: c.world = {light, conspecifics, temp, surrounding} — what is in the environment right now (predator / food / water are all surrounding objects now)
+
+    // reckless(c) = desperation factor: 0 when fed/watered, 1 at empty hunger OR thirst. Drives reckless approach
+    // (lower neophobia, higher curiosity, looser flee threshold) so hungry/thirsty agents investigate things they'd
+    // otherwise avoid. Kicks in gradually as needs rise (not just at the starving cliff) — h<0.3 or wt<0.4 starts
+    // moving the needle; h=0.15 (the starving threshold for OVERRIDE 3) gives desper=0.5; h=0 gives desper=1.
+    const reckless = c => Math.max(0, Math.min(1, (0.3 - c.h) / 0.3), Math.min(1, (0.4 - c.wt) / 0.4));
+    // curiosity(c, mem) = {cur, neo, ev, desper} — the curiosity / neophobia / learned-valence terms used by OVERRIDE 5
+    // in decide() and by ST.approach_object.can/want. Scales with desper: curiosity up to 2.5× at desper=1, neophobia
+    // drops to 0 at desper=1. ev = expected valence (valence × confidence), the learned-value term.
+    const curiosity = (c, mem) => {
+      const desper = reckless(c);
+      const nov = mem ? 1 / Math.sqrt(mem.count + 1) : 1;
+      const cur = nov * (.3 + .7 * (c.temperament.boldness + c.temperament.exploration) / 2) * (1 + 1.5 * desper);
+      const neo = nov * (1 - c.temperament.boldness) * .5 * (1 - desper);
+      const ev = mem ? mem.valence * mem.conf : 0;
+      return { cur, neo, ev, desper };
+    };
+    const ST = {
+      idle: {
+        col: '#7a8a99', tug: { a: [-.2, .02] }, want: c => 1,
+        surroundAgeRate: 1
+      },   // idle: rare encounters (spawn rates in SPAWN_RATES)
+      foraging: {
+        col: '#c9772b', hunger: 1.8, push: { a: .002 },    // looks for food AND water, whichever is more urgent
+        want: c => Math.max(c.h < c.sat ? (1 - c.h) * 5 : .3, c.wt < .7 ? (1 - c.wt) * 6 : .2),
+        surroundAgeRate: 1
+      },   // foraging: moving around
+      socialising: {
+        col: '#d0488f', hunger: 1.6, push: { v: .004, a: .001 },   // (renamed from "playing") social contact with conspecifics
+        can: c => c.h > .25 && c.wt > .25 && c.v > -.2, stay: c => c.h > .15, want: c => Math.min(c.h, c.wt) * 1.5,
+        surroundAgeRate: 1
+      },   // socialising: some movement
+      explore: {
+        col: '#4a9e6f', hunger: 1.2, push: { a: .001 },                           // free-time wandering, only when fed and watered
+        can: c => c.h > .4 && c.wt > .4, want: c => Math.min(c.h, c.wt) * (.5 + .5 * Math.max(0, c.a)),   // more aroused = more curious. TODO: also scale by c.temperament.exploration
+        surroundAgeRate: 1.5
+      },   // explore: slightly faster despawns (agent moves on)
+      nrem: {
+        col: '#3f5fb0', sleep: true, impact: .5, repair: .6, tug: { v: [0, .05], d: [0, .05], a: [-.5, .02] },   // deep sleep: calm, valence and dominance fade to 0
+        surroundAgeRate: 1
+      },   // sleep: no new encounters (SPAWN_RATES.nrem is empty)
+      rem: {
+        col: '#8a5fd0', sleep: true, impact: .5, repair: 1.4, tug: { v: [.1, .04], d: [0, .05], a: [.05, .03] }   // REM: arousal drifts up a little, mood repairs the most
+        , surroundAgeRate: 1
+      },
+      approach_object: {
+        col: '#e8a020', hunger: 1.5,   //  agent approaches a perceived object it expects to be good (or is curious / desperate enough to investigate). Uses the curiosity() helper so hunger/thirst boost curiosity and damp neophobia.
+        can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return ev + cur - neo > 0; },
+        stay: c => !!eyes(),
+        want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return Math.max(ev + cur - neo, 0); },
+        surroundAgeRate: 1
+      },
+      flee_object: {
+        col: '#e04040', hunger: 2.5, impact: 1.5,   //  agent flees a perceived object it expects to be bad
+        can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); return m && m.valence < 0 && m.conf > 0.3; },
+        stay: c => !!eyes(),
+        want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); if (!m || m.valence >= 0) return 0; return Math.abs(m.valence) * m.conf; },
+        surroundAgeRate: 2
+      },
+    };
+
+    //  approach mechanics
+    const APPROACH_TICKS = 5;   // how many ticks of approach_object before the US fires
+    let lastPreviewedKey = null;    //  feature key of the last object we already fired a preview pulse for (so we don't keep re-firing while staring at the same thing)
+
+    // stepApproach = handle approach_object completion. Called from tick() after stepSleepWake.
+    // When approachTimer reaches APPROACH_TICKS: fire the US event (marked with fromApproach), consume the target.
+    function stepApproach(s) {
+      if (behaviour !== 'approach_object') { s.approachTimer = 0; return; }
+      const target = eyes();
+      if (!target) { behaviour = 'idle'; s.approachTimer = 0; return; }
+      s.approachTimer = (s.approachTimer || 0) + 1;
+      if (s.approachTimer < APPROACH_TICKS) return;
+      // Approach complete!
+      s.approachTimer = 0;
+      const key = featureKey(target.features);   // the feature key the agent perceived — carried on the US event via `fromApproach`
+      const usEvents = target.events || [];   // events array lives ON the target now (was TYPE_TO_US[target.underlyingType])
+      if (usEvents.length > 0) {
+        const usKey = usEvents[Math.floor(Math.random() * usEvents.length)];
+        // Mark the US event with `fromApproach: key` so fireEvents knows:
+        //   (a) this event came from an approach (not a manual click or RANDOM row)
+        //   (b) which feature key to update in memory
+        //   (c) measure the actual valence delta (before/after this event's pulses) as the teaching signal
+        Q.push({ ...EVENT_BY_KEY[usKey], fromApproach: key });
+      } else {
+        // Neutral encounter — tiny curiosity bump, learn "this = nothing"
+        s.a += 0.05;
+        const entry = memory.get(key) || { valence: 0, conf: 0, count: 0, lastSeen: 0 };
+        entry.valence += P.learnRate * (0 - entry.valence);
+        entry.conf = Math.min(1, entry.conf + P.learnRate);
+        entry.count++; entry.lastSeen = N;
+        memory.set(key, entry);
+      }
+      W.surrounding = W.surrounding.filter(o => o.id !== target.id);   // consume the target
+    }
+
+    // previewPulse =  anticipatory affect. When attention locks onto an object, the mood shifts
+    // based on the expected outcome stored in memory. Same multi-pulse shape as the matching US event
+    // (spike + slow tail on each of v / a / d — like predator_attack / ate_food), but at ~30% of that
+    // event's amplitude, gated by confidence (low-conf expectations aren't felt yet — curiosity / neophobia
+    // still drive the decision to investigate). Fires ONCE PER ATTENTION SWITCH — staring at the same object
+    // does not keep re-firing previews. Malaise dampers (anhedonia, blunting, reactive dominance) apply
+    // exactly as they do to real events, so an unwell agent also feels a flattened preview.
+    function previewPulse(target, s) {
+      const key = featureKey(target.features);
+      if (key === lastPreviewedKey) return;             // already previewed this exact feature-key this attention span
+      const mem = memory.get(key);
+      // Always mark the key as "seen" so we don't retry every tick — even when we skip the actual pulse.
+      lastPreviewedKey = key;
+      if (!mem) return;                                 // nothing learned yet → nothing to anticipate (curiosity handles it)
+      const v = mem.valence, c = mem.conf, gain = P.previewGain;
+      if (c < P.previewConfFloor) return;               // low-confidence expectation → not felt yet
+      if (Math.abs(v) < P.previewValFloor) return;      // near-neutral valence → no anticipatory tint
+      // 6 pulses: spike + tail on each dimension. Same shape as predator_attack / ate_food at ~30% amplitude.
+      //   - Valence: tracks the expected sign and magnitude.
+      //   - Arousal: rises for BOTH positive (excitement) and negative (wariness) valence — uses |v|.
+      //   - Dominance: tracks valence sign (positive → in control; negative → small).
+      const pulses = [
+        { dim: 'v', amp: v * .25 * c * gain, tau: 4 },
+        { dim: 'v', amp: v * .10 * c * gain, tau: 80 },
+        { dim: 'a', amp: Math.abs(v) * .20 * c * gain, tau: 5 },
+        { dim: 'a', amp: Math.abs(v) * .08 * c * gain, tau: 60 },
+        { dim: 'd', amp: v * .15 * c * gain, tau: 20 },
+        { dim: 'd', amp: v * .10 * c * gain, tau: 150 },
+      ];
+      // Apply the same malaise dampers as fireEvents so previews flatten along with real events when unwell.
+      const feltV = clamp(s.v + pulseSum().v);          // current felt valence (for situational domScale)
+      const domScale = feltV <= 0 ? K.domGainHalf : 1;
+      for (const p of pulses) {
+        let amp = p.amp;
+        if (p.dim === 'v') { amp *= P.pers; if (amp > 0) amp *= 1 - P.posValenceSuppress * s.malaise; }
+        if (p.dim === 'a') amp *= 1 - P.phasicBlunt * s.malaise;
+        if (p.dim === 'd' && amp > 0) amp *= domScale * (1 - P.posDomDamp * s.malaise);
+        PULSES.push({ dim: p.dim, amp, tau: p.tau, age: 0 });
+      }
+    }
+
+    // Pick the next awake behaviour (never a sleep stage). Sets the global `behaviour`.
+    function decide(c) {
+      //  check the attended object for approach/flee decisions
+      const target = eyes();
+      const desper = reckless(c);                                    // 0 when fed, 1 at empty hunger OR thirst — drives reckless approach
+      if (target) {
+        const mem = memory.get(featureKey(target.features));
+        // OVERRIDE 2: strong negative memory → flee. The "strong negative" threshold slides with desperation —
+        //   a fed agent (desper=0) flees anything val<-0.3; a desperate agent (desper=1) only flees val<-0.6.
+        //   Predators (innate val=-0.7) still get fled even at desper=1, but mildly-negative objects get approached when starving.
+        const fleeThreshold = -0.3 - 0.3 * desper;                   // -0.3 when fed → -0.6 when desperate
+        if (mem && mem.valence < fleeThreshold && mem.conf > 0.5) { behaviour = 'flee_object'; return; }
+        // OVERRIDE 3: starving → reckless approach of whatever's visible (desperation beats caution — the agent
+        //   will try anything except strong negatives that OVERRIDE 2 caught). No target → foraging (need to find something).
+        if (c.h < .15 || c.wt < .2) { behaviour = 'approach_object'; return; }
+        // OVERRIDE 4: strong positive memory → approach this object
+        if (mem && mem.valence > 0.3 && mem.conf > 0.3) { behaviour = 'approach_object'; return; }   // lowered from 0.5 — pre-seed conf=0.3 should trigger
+        // OVERRIDE 5: Unknown or low-confidence object + curiosity > neophobia → approach. Curiosity is boosted
+        //   and neophobia is damped by desperation, so hungry/thirsty agents investigate things they'd otherwise avoid.
+        if (!mem || mem.conf < 0.5) {
+          const { cur, neo } = curiosity(c, mem);                      // uses desper-modulated formula
+          if (cur > neo && cur > 0.3) { behaviour = 'approach_object'; return; }
+        }
+      } else {
+        if (c.h < .15 || c.wt < .2) { behaviour = 'foraging'; return; }
+      }
+      const def = ST[behaviour];
+      if (def.stay && !def.stay(c)) behaviour = 'idle';
+      const w = {}; let sum = 0;                                    // w = weight of each candidate state
+      for (const k in ST) {
+        if (ST[k].sleep) continue;                                  // sleep is handled by the sleep model
+        if (k !== behaviour && ST[k].can && !ST[k].can(c)) continue;   // entry gate
+        w[k] = Math.max(0, ST[k].want(c)) * (k === behaviour ? P.sticky : 1);
+        sum += w[k];
+      }
+      let r = Math.random() * sum;                                  // weighted random pick
+      for (const k in w) { r -= w[k]; if (r <= 0) { behaviour = k; break; } }
+    }
+
+    /* ============ Body clock and light ============ */
+    // daylight = sun brightness 0..1 for a world hour: dark before 06:00 and after 18:00, brightest at noon
+    const daylight = h => Math.max(0, Math.sin((h - 6) / 12 * Math.PI));
+    // bodyClock = Process C, scaled to about -1..+1. A sine plus a 2nd harmonic gives the skewed shape.
+    // The 8.4 puts the trough at about 04:00 and the peak at about 13:00.
+    const bodyClock = h => { const x = 2 * Math.PI * (h - 8.4) / 24; return (Math.sin(x) + .3 * Math.sin(2 * x)) / 1.137; };
+
+    /* ============ Simulation state ============ */
+    // S = the AGENT's own state.
+    //   v/a/d = valence, arousal, dominance (the layer that behaviour and needs push on; event effects are separate, in PULSES). bv/ba/bd = their baselines (slow layer, "b" for baseline).
+    //   h = hunger meter (1 full, 0 starving).  wt = hydration meter (1 hydrated, 0 dehydrated).  hp = health (1 healthy).  ill = is it ill?
+    //   sp = sleep pressure (Process S).  ct = body-clock time in hours.  asleep = sleeping now?
+    //   tin = hours asleep this episode.  ut = minutes into the current sleep cycle.
+    //   slept = hours slept since the daily ledger last closed (12:00 on the body clock).  dbt = sleep debt in hours.
+    //   dep = sleep deprivation 0..1.  cool = ticks before it may fall asleep again.  led = has today's ledger closed already?
+    // W = the WORLD: what is in the environment right now. Kept apart from the agent.
+    // behaviour = name of the current behaviour (a key of ST).
+    let S, W, behaviour;
+    // H = history (last 600 ticks), N = tick counter, M = chart marks (one per tick that fired events),
+    // Q = events waiting for the next tick, LOG = recent events for the list under the chart, evSeq = running event number,
+    // PULSES = event effects still fading, each {dim, amp, tau, age}
+    let H, N, M, Q, LOG, evSeq, PULSES;
+    const MARKS = [];   // MARKS = where each number tag sits on the timeline (rebuilt in place every frame, hence const)
+
+    /* ---- Custom events (user-defined, saved to localStorage) ---- */
+    // Each entry is a full event object (same shape as EVENTS entries from RAW+EXTRA merged): {g, k, v, a, d, food?, water?, hp?}.
+    // Pushed directly to Q when the user clicks the button. The v/a/d impacts build default pulses via SHAPE
+    // (no custom pulse list — for custom pulse shapes, use the one-off custom event composer above the grid).
+    let CUSTOM_EVENTS = [];
+    const CUSTOM_EVENTS_KEY = 'moodbench_customEvents_v1';
+    const loadCustomEvents = () => { try { CUSTOM_EVENTS = JSON.parse(localStorage.getItem(CUSTOM_EVENTS_KEY) || '[]'); } catch (e) { CUSTOM_EVENTS = []; } };
+    const saveCustomEvents = () => { try { localStorage.setItem(CUSTOM_EVENTS_KEY, JSON.stringify(CUSTOM_EVENTS)); } catch (e) { } };
+    loadCustomEvents();   // load on script init
+    let run = true, circOn = true, clock = true;
+    // Custom event composer state. Declared here (above init) so init() can wipe customQueue on Reset.
+    // No per-dim defaults — each queued spike starts neutral (amp=0, τ=10) and is adjusted inline.
+    const customQueue = [];               // staged pulses: each {dim, amp, tau}. Pushed as one custom event's `pulses` on Fire.
+
+    /* ============ Surrounding objects (Surrounding objects) ============ */
+    // Each object in W.surrounding has:
+    //   id              — unique monotonic id for tracking
+    //   name            — the archetype key (e.g. 'wolf', 'berry_bush'). Mainly for UI/debugging.
+    //   features       — {size, color, shape}, the perceptual features the agent learns to associate
+    //   events          — array of event keys that fire when this object is approached (was: underlyingType → TYPE_TO_US lookup)
+    //   ttl             — ticks until despawn
+    //   age             — ticks since spawned
+    // Spawned here; read by eyes() / previewPulse() / stepApproach() / renderSurrounding().
+    let nextObjectId = 1;
+    const SURR_FEATURES = {
+      size: ['small', 'medium', 'large'],
+      color: ['dark', 'red', 'green', 'blue', 'brown'],
+      shape: ['round', 'angular', 'animal', 'plant'],
+    };
+    const SURR_COLOR_HEX = { dark: '#222', red: '#d33', green: '#3a3', blue: '#36c', brown: '#a52' };
+    const SURR_SIZE_PX = { small: 14, medium: 18, large: 22 };
+    // ARCHETYPES = the catalog of named object types the world can spawn. Each entry has:
+    //   features       — {size, color, shape} perceptual identity (must be unique per archetype, since memory
+    //                    keys are derived from featureKey(features) — collisions = ambiguous learning signal)
+    //   events          — array of event keys that fire when this object is approached. Empty = neutral (no US,
+    //                    stepApproach handles inline with a curiosity bump + "this = nothing" memory update).
+    //                    Multiple = the approach picks one at random (e.g. social_rival → social_loss or social_win).
+    //   innateValence?  — if set, the agent is born expecting this much valence from this feature pattern.
+    //   innateConf?     — confidence of the innate expectation (defaults to 0.3 if omitted).
+    // INNATE_MEMORY is auto-derived from ARCHETYPES (see below).
+    const ARCHETYPES = {
+      // ── predators (innate wariness of large dark animal shapes — pre-seeded with valence -0.7, conf 0.6) ──
+      wolf: { features: { size: 'large', color: 'dark', shape: 'animal' }, events: [EV.predator_attack], innateValence: -.7, innateConf: .6 },
+      fox: { features: { size: 'medium', color: 'red', shape: 'animal' }, events: [EV.predator_attack] },
+      owl: { features: { size: 'small', color: 'dark', shape: 'animal' }, events: [EV.predator_attack] },
+      // ── food (innate attraction to small green round shapes — pre-seeded valence +0.5, conf 0.3) ──
+      berry_bush: { features: { size: 'small', color: 'green', shape: 'round' }, events: [EV.ate_food], innateValence: .5, innateConf: .3 },
+      nut: { features: { size: 'small', color: 'brown', shape: 'round' }, events: [EV.ate_food] },
+      // ── water ──
+      stream: { features: { size: 'large', color: 'blue', shape: 'round' }, events: [EV.drank_water] },
+      puddle: { features: { size: 'small', color: 'blue', shape: 'round' }, events: [EV.drank_water] },
+      // ── social ──
+      sparrow: { features: { size: 'small', color: 'brown', shape: 'animal' }, events: [EV.grooming_contact] },
+      rival_bird: { features: { size: 'medium', color: 'red', shape: 'angular' }, events: [EV.social_loss, EV.social_win] },   // 50/50 win-or-lose
+      // ── environment / novelty ──
+      cracker: { features: { size: 'small', color: 'brown', shape: 'angular' }, events: [EV.loud_noise] },
+      // ── body (healing / sickness) ──
+      herb: { features: { size: 'medium', color: 'green', shape: 'plant' }, events: [EV.recovery] },
+      rotten_food: { features: { size: 'small', color: 'brown', shape: 'plant' }, events: [EV.illness_onset] },
+      // ── neutral (no US — approach produces a tiny curiosity bump + "this = nothing" memory update) ──
+      pebble: { features: { size: 'small', color: 'dark', shape: 'round' }, events: [] },
+    };
+    function objectSvg(features) {
+      const sz = SURR_SIZE_PX[features.size], col = SURR_COLOR_HEX[features.color];
+      let inner;
+      if (features.shape === 'round') inner = `<circle cx="${sz / 2}" cy="${sz / 2}" r="${sz / 2 - 1}" fill="${col}"/>`;
+      else if (features.shape === 'angular') inner = `<rect x="1" y="1" width="${sz - 2}" height="${sz - 2}" fill="${col}"/>`;
+      else if (features.shape === 'plant') inner = `<ellipse cx="${sz / 2}" cy="${sz / 2}" rx="${sz / 3}" ry="${sz / 2 - 1}" fill="${col}"/>`;   // plant = leaf-shaped ellipse
+      else inner = `<polygon points="${sz / 2},1 ${sz - 1},${sz - 1} 1,${sz - 1}" fill="${col}"/>`;   // animal = triangle
+      return `<svg width="${sz}" height="${sz}" aria-hidden="true">${inner}</svg>`;
+    }
+    function randomFeatures() {
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+      return { size: pick(SURR_FEATURES.size), color: pick(SURR_FEATURES.color), shape: pick(SURR_FEATURES.shape) };
+    }
+    // SPAWN_RATES = absolute per-tick spawn probability for each (state, archetype) pair.
+    // Each number IS the spawn chance — no relative weights, no separate spawnRate cap.
+    // At most one object spawns per tick: sum the rates, roll once against the sum, weighted-pick which archetype.
+    // Unspecified cells = 0. Empty state row = nothing spawns in that state.
+    // Tune one cell without recalculating anything else — that was the whole point of the redesign.
+    const SPAWN_RATES = {
+      idle: { pebble: 0.0007, sparrow: 0.0001, wolf: 0.00005, fox: 0.00005, owl: 0.00005, herb: 0.00005 },
+      foraging: { berry_bush: 0.0012, nut: 0.001, stream: 0.0006, puddle: 0.0005, wolf: 0.00005, fox: 0.00005 },
+      socialising: { sparrow: 0.0015, rival_bird: 0.0008, pebble: 0.0003 },
+      explore: { pebble: 0.003, cracker: 0.001, berry_bush: 0.0015, nut: 0.001, wolf: 0.0003, fox: 0.0003, owl: 0.0003, herb: 0.0005, rotten_food: 0.0002, sparrow: 0.0002, stream: 0.0003, puddle: 0.0002 },
+      nrem: {},   // no spawns while sleeping
+      rem: {},
+      approach_object: { pebble: 0.0005 },   // minimal ambient spawns while focused on a target (don't distract)
+      flee_object: { wolf: 0.005, fox: 0.003, owl: 0.002, rival_bird: 0.002 },   // scary things while fleeing
+    };
+    // spawnObject = push a new archetype instance into W.surrounding.
+    // Signature changed: takes the archetype NAME (looked up in ARCHETYPES), not (features, underlyingType).
+    function spawnObject(name, ttl = 200) {
+      if (W.surrounding.length >= 20) return;   // cap at 20 visible objects so the panel doesn't explode
+      const arch = ARCHETYPES[name];
+      if (!arch) return;
+      W.surrounding.push({ id: nextObjectId++, name, features: arch.features, events: arch.events, ttl, age: 0 });
+    }
+    // stepSurrounding = ambient random spawning + TTL aging + despawn + preview pulse.
+    // Called from tick() after stepWorld(). Takes s so the preview pulse can apply malaise dampers.
+    function stepSurrounding(s) {
+      // Spawn: sum rates for the current state, roll once, weighted-pick which archetype.
+      const rates = SPAWN_RATES[behaviour] || {};
+      const entries = Object.entries(rates).filter(([, r]) => r > 0);
+      const totalRate = entries.reduce((sum, [, r]) => sum + r, 0);
+      if (totalRate > 0 && Math.random() < totalRate) {
+        let r = Math.random() * totalRate;
+        for (const [name, rate] of entries) {
+          r -= rate;
+          if (r <= 0) { spawnObject(name); break; }
+        }
+      }
+      const b = ST[behaviour] || {};
+      const ageRate = b.surroundAgeRate ?? 1;
+      const target = eyes();
+      for (const obj of W.surrounding) {
+        let rate = ageRate;
+        if (behaviour === 'flee_object' && target && obj.id === target.id) rate = Math.max(rate, 5);   // fleeing → target leaves view fast
+        if (behaviour === 'approach_object' && target && obj.id === target.id) rate = 0;                // approaching → target stays until reached
+        obj.age += rate;
+      }
+      W.surrounding = W.surrounding.filter(obj => obj.age < obj.ttl);
+      //  fire a preview pulse when attention switches to a new object (or to anything after a gap).
+      const tgt = eyes();
+      if (tgt) previewPulse(tgt, s);
+      else lastPreviewedKey = null;   // nothing visible → next spawn triggers a fresh preview
+    }
+    // renderSurrounding = rebuild the surrounding list DOM. Called every frame from readout() (small list, no perf issue).
+    function renderSurrounding() {
+      const list = $('#surroundingList');
+      if (!list) return;
+      list.innerHTML = W.surrounding.length === 0
+        ? `<small>${t.surrEmpty}</small>`
+        : W.surrounding.map(obj => {
+          const feats = `${t.feat.size[obj.features.size]} · ${t.feat.color[obj.features.color]} · ${t.feat.shape[obj.features.shape]}`;
+          return `<div class="surrItem">${objectSvg(obj.features)} ${feats} <span class="type">${obj.name}</span><span class="ttl">${obj.ttl - obj.age}t</span></div>`;
+        }).join('');
+    }
+
+    /* ============ Memory & learning  ============ */
+    // memory = Map from feature-string to {valence, conf, count, lastSeen}.
+    //   valence  = -1..+1, the learned affect (Rescorla-Wagner running average of actual outcomes)
+    //   conf     = 0..1, confidence (grows with each encounter, shrinks with contradiction)
+    //   count    = how many times this feature-pattern has been encountered
+    //   lastSeen = tick of last encounter (for future forgetting / decay)
+    // The agent never sees the archetype name; it only sees features. Memory links features to expected valence.
+    let memory = new Map();
+
+    // featureKey = hash the features object into a string key for the Map (e.g. "large|dark|animal").
+    function featureKey(features) {
+      return `${features.size}|${features.color}|${features.shape}`;
+    }
+
+    // INNATE_MEMORY = auto-derived from ARCHETYPES. Any archetype with `innateValence` set becomes an innate
+    // pre-seed entry. Evolutionary predispositions that experience can reinforce (push conf toward 1.0) or override
+    // (if a wolf turns out friendly). The wolf entry has HIGH conf (0.6) so OVERRIDE 2 in decide() fires
+    // flee_object on first sight. Berry_bush stays at low conf (0.3) — curiosity can still beat innate attraction
+    // on first encounter, which is fine because approaching food is rewarded, not punished.
+    // (To add more innate predispositions, set `innateValence` + `innateConf` on the archetype entry.)
+    const INNATE_MEMORY = Object.entries(ARCHETYPES)
+      .filter(([, arch]) => arch.innateValence !== undefined)
+      .map(([_, arch]) => ({ features: arch.features, valence: arch.innateValence, conf: arch.innateConf ?? 0.3 }));
+
+    // seedMemory = reset memory to the innate pre-seed entries. Called from init() on Reset.
+    function seedMemory() {
+      memory.clear();
+      for (const e of INNATE_MEMORY)
+        memory.set(featureKey(e.features), { valence: e.valence, conf: e.conf, count: 0, lastSeen: 0 });
+    }
+
+    // eyes = pick which visible object the agent is currently attending to: most recently spawned (last in W.surrounding).
+    function eyes() {
+      return W.surrounding.length > 0 ? W.surrounding[W.surrounding.length - 1] : null;
+    }
+
+    // learnFromEvent = Rescorla-Wagner update: move expected valence toward the actual felt valence change
+    // (the teaching signal), grow confidence. Only called for US events from approach completion (events with
+    // `fromApproach` set) — manual clicks and RANDOM row events don't teach, preventing the multi-event-same-tick
+    // pollution bug where a negative RANDOM event (e.g. social_loss) could overwrite a positive US (e.g. drank_water).
+    function learnFromEvent(key, teachingSignal) {
+      if (!key) return;
+      const entry = memory.get(key) || { valence: 0, conf: 0, count: 0, lastSeen: 0 };
+      entry.valence += P.learnRate * (teachingSignal - entry.valence);
+      entry.conf = Math.min(1, entry.conf + P.learnRate);
+      entry.count++;
+      entry.lastSeen = N;
+      memory.set(key, entry);
+    }
+
+    function init() {
+      // Reset sliders to defaults (fixes the "Reset doesn't reset sliders" bug — P used to retain edits across Reset).
+      Object.assign(P, CONFIG);
+      // Reset world state FIRST (S.ct reads W.hour for the body-clock start time).
+      W = {
+        light: 0,           // 0 dark .. 1 full daylight (from the sun, if sunlight is on)
+        conspecifics: 0,    // how many others of its own kind are nearby
+        temp: 18,           // ambient temperature in degrees C (comfortable is 20)
+        surrounding: [],    // currently-visible objects (see stepSurrounding / renderSurrounding)
+        ...WORLD_DEFAULTS
+      };   // hour + sun — world state, not parameters
+      deriveWorld();   // immediately recompute W.light + W.temp from the (just-reset) hour + sun, so the gauges are consistent even while paused (no tick yet)
+      S = {
+        v: HOME.v, a: HOME.a, d: HOME.d, bv: HOME.v, ba: HOME.a, bd: HOME.d, h: .8, wt: .8, hp: 1, ill: false, sp: .35, ct: W.hour,
+        asleep: false, tin: 0, ut: 0, slept: P.expect, dbt: 0, dep: 0, cool: 0, led: false, malaise: 0, approachTimer: 0
+      };
+      behaviour = 'idle';
+      H = []; N = 0; M = []; Q = []; LOG = []; evSeq = 0; PULSES = [];
+      customQueue.length = 0;   // also wipe the staged custom-event pulses so Reset returns a clean slate
+      lastPreviewedKey = null;   //  clear after reset so the first seen object triggers a fresh preview
+      seedMemory();   //  reset memory to innate pre-seed entries
+      // Sync every slider + the optSun checkbox to the reset values. (No-op on the very first init() call
+      // before build() has run, since the slider elements don't exist yet — sync() bails when !input.)
+      for (const [k] of SLIDERS) sync(k);
+      const sunBox = $('#optSun'); if (sunBox) sunBox.checked = W.sun;
+    }
+    init();
+
+    // startSleep / wake = the two sleep transitions. wake(natural): natural = the sleep pressure ran out; otherwise something interrupted.
+    function startSleep() { S.asleep = true; S.tin = S.ut = 0; behaviour = 'nrem'; Q.push(EVENT_BY_KEY[EV.fell_asleep]); }
+    function wake(natural) { S.asleep = false; behaviour = 'idle'; S.cool = natural ? 0 : P.wakeCooldown; Q.push(EVENT_BY_KEY[natural ? EV.woke_up : EV.sleep_interrupted]); }
+
+    /* ============ One simulation tick ============ */
+    // tick() only lists the steps. Each step is a function below, grouped by topic (mood, needs, world, sleep, behaviour).
+    function tick() {
+      const s = S, def = ST[behaviour];          // s = the agent, def = definition of its current behaviour
+      decayMood(s);
+      applyBehaviour(s, def);
+      applyNeeds(s, def);
+      applyHealth(s, def);
+      fireEvents(s, def);
+      clampMood(s);
+      const m = feel(s);                         // m = the felt mood: the slow layer plus every event pulse still fading (this also ages the pulses by one tick)
+      moveBaseline(s, def, m);
+      stepWorld();
+      stepSurrounding(s);   // ambient object spawning + TTL aging + preview pulse
+      const body = stepBodyClock(s, m);             // body = {ea: displayed arousal, offset, up, lo: sleep thresholds, noon: passed 12:00}
+      stepSleepPressure(s, body.noon);
+      stepSleepWake(s, body);
+      stepApproach(s);   //  handle approach_object completion (US fires, target consumed)
+      chooseBehaviourAndRandomEvents(s, m, body.ea);
+      record(s, m, body);
+      N++;
+    }
+
+    /* ---- Mood (uses: decay, afast, drift, pers, thr, dep, repair) ---- */
+    // Pull the slow layer of the mood (the part behaviour and needs push on) back toward baseline.
+    // Event effects are not here: they are pulses with their own fade times (see feel).
+    function decayMood(s) {
+      s.v += (s.bv - s.v) * P.decay;
+      s.d += (s.bd - s.d) * P.decay;
+      s.a += (s.ba - s.a) * P.decay;
+    }
+    // The current behaviour's steady effect on mood: push = nudge, tug = pull toward a target
+    function applyBehaviour(s, def) {
+      for (const k in def.push) s[k] += def.push[k];
+      for (const k in def.tug) s[k] += (def.tug[k][0] - s[k]) * def.tug[k][1];
+    }
+    // ---- Event pulses ----
+    // An event is a few PULSES, each with a size (amp) and a fade time (tau, in ticks). A pulse adds amp x exp(-age / tau) to the mood:
+    // a small tau is a quick spike, a big tau is a lingering tail. A pulse is dropped once it has faded to under 0.5% of its size.
+    // The felt mood = the slow layer (S.v / S.a / S.d) + the sum of all pulses, clamped to -1..1.
+    // pulsesOf = the pulses for an event: its own list if it has one, otherwise built from its impacts (imp) with SHAPE
+    function pulsesOf(e, imp) {
+      return e.pulses || ['v', 'a', 'd'].flatMap(dim => SHAPE[dim].map(([share, tau]) => ({ dim, amp: imp[dim] * share, tau })));
+    }
+    // needMult = need-relevance multiplier for an event group, based on the agent state s and world W.
+    // 1 = neutral, >1 = more salient when the relevant need is high. Incentive-salience-style modulation
+    // (Berridge & Robinson 1998): food is more salient when hungry, social events when isolated, etc.
+    // Compounds with the base magnitude salience (max of |impacts| or |pulse amps|) in fireEvents.
+    function needMult(g, s, W) {
+      switch (g) {
+        case 'food': return 1 + (1 - s.h) * 0.5;                         // food more salient when hungry (up to 1.5× at empty)
+        case 'body': return 1 + (s.ill ? 0.3 : 0) + (1 - s.hp) * 0.3;   // body events (pain, illness, recovery) more salient when sick / low HP
+        case 'social': return 1 + (W.conspecifics === 0 ? 0.3 : 0);       // social events more salient when isolated
+        case 'sleep': return 1 + s.dep * 0.3;                            // sleep transitions more salient when sleep-deprived
+        default: return 1;                                          // threat, env, custom: neutral (could add novelty bonus later)
+      }
+    }
+    // pulseValue = what one pulse contributes right now (0 while it is still waiting to start, i.e. age below 0)
+    const pulseValue = p => p.age < 0 ? 0 : p.amp * Math.exp(-p.age / (p.tau * P.plen));
+    // pulseSum = every pulse added up per dimension, without ageing them
+    function pulseSum() { const sum = { v: 0, a: 0, d: 0 }; for (const p of PULSES) sum[p.dim] += pulseValue(p); return sum; }
+    // feel = the felt mood this tick. Also ages every pulse by one tick and drops the faded ones.
+    function feel(s) {
+      const sum = pulseSum();
+      for (const p of PULSES) p.age++;
+      PULSES = PULSES.filter(p => p.age < 0 || Math.abs(pulseValue(p)) > .005 * Math.abs(p.amp));
+      return { v: clamp(s.v + sum.v), a: clamp(s.a + sum.a), d: clamp(s.d + sum.d) };
+    }
+    // Run the events waiting in the queue. Each one becomes a few pulses, and also moves needs and sometimes the world.
+    function fireEvents(s, def) {
+      if (!Q.length) return;
+      const names = [];                                                   // names = events that fire this tick (for the chart tag and the list)
+      for (const e of Q.splice(0)) {                                      // splice(0) = take every queued event and empty the queue
+        names.push(e.k);
+        if (e.force) {                                                    // a manual click on a sleep-transition button makes the agent actually do it
+          if (e.k === EV.fell_asleep && !s.asleep) startSleep();
+          else if (s.asleep && e.k !== EV.fell_asleep) wake(e.k === EV.woke_up);
+          continue;                                                       // the mood effect comes from the event that startSleep() / wake() queue
+        }
+        const imp = e.amb ? { v: K.ambValence * s.bv, a: K.ambArousal + K.ambArousalBase * s.ba, d: 0 } : e;
+        const feltV = clamp(s.v + pulseSum().v);       // feltV = valence as it stands after earlier events this tick, but before this one
+        const baseSalience = e.pulses ? Math.max(...e.pulses.map(p => Math.abs(p.amp)))
+          : e.amb ? Math.max(Math.abs(imp.v), Math.abs(imp.a), Math.abs(imp.d), 0.3)
+            : Math.max(Math.abs(e.v), Math.abs(e.a), Math.abs(e.d));
+        const salience = baseSalience * needMult(e.g, s, W);
+        const k = salience * (e.g === 'sleep' ? 1 : (def.impact ?? 1));
+        const domScale = feltV <= 0 ? K.domGainHalf : 1;
+        // For approach-US events (fromApproach set): measure the actual valence change caused by this event's pulses.
+        // vBefore = felt valence BEFORE this event's pulses are added; vAfter = AFTER. delta = vAfter - vBefore.
+        // This is the ACTUAL felt mood change — accounts for anhedonia, salience, personality. The sign is always
+        // correct (water always feels at least slightly good, even when sick), which fixes the bug where a negative
+        // RANDOM event firing in the same tick could pollute the memory with the wrong valence.
+        const vBefore = e.fromApproach ? clamp(s.v + pulseSum().v) : 0;
+        for (const p of pulsesOf(e, imp)) {
+          let amp = p.amp * k;
+          if (p.dim === 'v') { amp *= P.pers; if (amp > 0) amp *= 1 - P.posValenceSuppress * s.malaise; }
+          if (p.dim === 'a') amp *= 1 - P.phasicBlunt * s.malaise;
+          if (p.dim === 'd' && amp > 0) amp *= domScale * (1 - P.posDomDamp * s.malaise);
+          PULSES.push({ dim: p.dim, amp, tau: p.tau, age: -(p.delay ?? 0) });
+        }
+        if (e.food) s.h = clamp01(s.h + e.food * P.foodQuality);
+        if (e.water) s.wt = clamp01(s.wt + e.water);
+        if (e.hp) s.hp = clamp01(s.hp + e.hp);
+        if (e.act) e.act(W, s);
+        // Learning: only for approach-US events (fromApproach set). The teaching signal = the actual valence delta
+        // (vAfter - vBefore), scaled back up by dividing by k (the strength multiplier) to recover a value in the
+        // -1..+1 range comparable to imp.v. This way: (a) only approach encounters teach, (b) the sign is always
+        // correct (anhedonia reduces magnitude but never flips the sign), (c) the learned valence stays compatible
+        // with the existing decision thresholds (OVERRIDE 2/4 expect -0.3..+0.3 range).
+        if (e.fromApproach) {
+          const vAfter = clamp(s.v + pulseSum().v);
+          const delta = vAfter - vBefore;
+          const teachingSignal = k > 0 ? delta / k : delta;   // undo salience scaling → recover ~imp.v × pers × (1 - anhedemia)
+          learnFromEvent(e.fromApproach, teachingSignal);
+        }
+      }
+      M.push({ n: N, id: ++evSeq, k: names });
+      LOG.unshift({ id: evSeq, time: fmt('hour', W.hour), k: names });
+      if (LOG.length > 10) LOG.pop();
+      while (M.length && M[0].n < N - 600) M.shift();
+    }
+    function clampMood(s) { s.v = clamp(s.v); s.a = clamp(s.a); s.d = clamp(s.d); }
+    // Awake: the baseline drifts toward recent mood (a slow running mean), and long-term gloom drains it.
+    // Asleep: sleep is not "experience", so the running mean is frozen and the baseline is REPAIRED toward HOME instead.
+    function moveBaseline(s, def, m) {
+      if (!def.sleep) {
+        s.bv += (m.v - s.bv) * P.drift;
+        s.ba += (m.a - s.ba) * P.drift;
+        s.bd += (m.d - s.bd) * P.drift;
+        // Shared malaise → tonic VAD arousal drop (lethargy). All unwell sources (sleep debt + sickness + low HP) pull
+        // tonic VAD arousal DOWN. This is the construct-correct mapping: physiological hyperarousal (cortisol, sympathetic
+        // tone) is real but belongs elsewhere — it shows up as asymmetric anhedonia (posValenceSuppress, Motomura 2013)
+        const tonicA = -P.malaiseTonicLethargy * s.malaise;
+        s.ba += (tonicA - s.ba) * P.tonicRate;
+        // Shared malaise → tonic valence drop ("shifts negative"). Direct push on baseline valence, independent of the
+        // asymmetric pulse-side anhedonia (posValenceSuppress). Together they produce the table's "shifts negative; positive
+        // end attenuated" — the valence drop is symmetric (pulls bv toward -malaiseValenceDrop × malaise), the anhedonia
+        // is asymmetric (only dampens positive pulses). Both are malaise-driven, not sleep-debt-specific.
+        s.bv += (-P.malaiseValenceDrop * s.malaise - s.bv) * P.tonicRate;
+        // Shared malaise: tonic dominance target drops with malaise (low reactive dominance, regardless of source).
+        s.bd += (-P.malaiseDominanceDrop * s.malaise - s.bd) * P.tonicRate;
+        if (s.bv < P.thr) { s.ba *= P.depfactor; s.bd *= P.depfactor; }               
+        // depletion: gloom drains baseline arousal and dominance (separate mechanic — triggers on low valence, not on malaise)
+      } else {
+        const r = P.repair * (def.repair ?? 0) * (1 - P.malaiseRepairDamp * s.malaise);        
+        // r = repair per tick. Sleep repair dampened by malaise (configurable; default 0.5 = halved at full malaise).
+        s.bv += (HOME.v - s.bv) * r; s.ba += (HOME.a - s.ba) * r; s.bd += (HOME.d - s.bd) * r;
+      }
+    }
+
+    /* ---- Needs and body (uses: hrate, wrate, hmood) ---- */
+    function applyNeeds(s, def) {
+      const comfort = 1 - Math.min(1, Math.abs(W.temp - K.tempIdeal) / K.tempRange);   // 1 at 20 C, 0 at 5 C or 35 C
+      const use = def.hunger ?? 1;                                        // ?? 1 = "use 1 if the behaviour has no hunger field"
+      s.h = clamp01(s.h - P.hrate * use * (1 + K.deprivedBurn * s.dep) - (1 - comfort) * K.coldBurn);   // sleep loss and cold both burn energy
+      s.wt = clamp01(s.wt - P.wrate * use * (1 + K.thirstFromHunger * (1 - s.h)));                        // thirst runs faster when hungry
+      const hurt = m => Math.max(0, K.needFloor - m) / K.needFloor;       // hurt = 0 while a meter is above .4, rising to 1 when empty
+      const need = hurt(s.h) + hurt(s.wt);
+      s.v -= P.hmood * K.needValence * need;                              // being hungry or thirsty feels bad...
+      s.a += P.hmood * K.needArousal * need;                              // ...and restless
+      if (comfort < K.coldStress) s.v -= K.coldValence;                   // chronic cold or heat stress
+    }
+    // Health. ILLNESS lives in these places: the flag s.ill; EXTRA.illness_onset / recovery (set and clear it);
+    // the RANDOM rows 'illness' and 'recover' (start and end it by chance); the drain below; the status line (readout).
+    function applyHealth(s, def) {
+      if (def.sleep) s.hp += s.ill ? P.sickSleepHeal : P.sleepHeal;       // sleep heals, but barely while sick
+      if (s.ill) s.hp -= P.illDrain;
+      s.hp = clamp01(s.hp);
+    }
+
+    /* ---- World (uses: speed, hour, rate) ---- */
+    // deriveWorld = recompute the *derived* world fields (light, temp) from W.hour + W.sun.
+    // Called from stepWorld() every tick AND from anywhere that mutates W.hour / W.sun directly
+    // (init(), setParam('hour',…), the optSun checkbox handler) so the light/temp gauges stay
+    // consistent even while the sim is paused (no ticks running).
+    function deriveWorld() {
+      W.light = W.sun ? daylight(W.hour) : 0;
+      W.temp = 18 + 6 * Math.sin((W.hour - 9) / 24 * 2 * Math.PI);   // ambient temperature: daily cycle 12-24°C
+    }
+    function stepWorld() {
+      if (clock) { W.hour = (W.hour + DT) % 24; sync('hour'); }           // only the WORLD clock stops when unticked; the body keeps running
+      deriveWorld();
+    }
+
+    /* ---- Sleep (uses: sleep, krise, kdecay, camp, cycle, expect, amp, tau, ent) ---- */
+    // Process C, the body clock: free-runs at its own period, and light pulls it toward world time.
+    function stepBodyClock(s, m) {
+      const before = s.ct;                                                // before = body-clock time before this tick (to detect passing 12:00)
+      s.ct = wrap24(s.ct + DT * 24 / P.tau);
+      if (W.light > 0) s.ct = wrap24(s.ct + P.ent * W.light * (((W.hour - s.ct + 36) % 24) - 12) * DT);   // (...) = signed gap to world time, -12..+12 h
+      const level = bodyClock(s.ct), offset = circOn ? P.amp * level : 0;
+      return {
+        ea: clamp(m.a + offset),                                    // ea = effective (displayed) arousal = stored arousal + body-clock offset
+        offset,
+        up: UP + P.camp * level, lo: LOW + P.camp * level,          // up = fall-asleep threshold, lo = wake-up threshold; both ride on Process C
+        noon: before < 12 && s.ct >= 12
+      };
+    }
+    // Process S, sleep pressure: rises while awake, decays while asleep (both exponential). Also keeps the daily sleep-debt ledger.
+    function stepSleepPressure(s, noon) {
+      s.sp += s.asleep ? (0 - s.sp) * P.kdecay * DT : (1 - s.sp) * P.krise * DT;
+      s.slept += s.asleep ? DT : 0;
+      if (noon && !s.led) { s.dbt = Math.max(0, s.dbt + P.expect - s.slept); s.slept = 0; s.led = true; }   
+      // body clock passed 12:00: close the day's ledger (a shortfall adds debt, extra sleep pays it down)
+      if (s.led && s.ct < 6) s.led = false;                                        
+      // re-arm in the morning, so dragging the clock back and forth cannot close it twice
+      s.dep = clamp01(s.dbt / P.expect);                                  
+      // 0 = well rested, 1 = total deprivation
+      s.malaise = clamp01(Math.max(s.dep, s.ill ? 1 : 0, 1 - s.hp) + P.malaiseOffset);   
+      // shared malaise: aggregates sleep dep + sickness + low health, plus user's direct malaiseOffset boost (the "mess with malaise directly" knob)
+      if (s.cool > 0) s.cool--;
+    }
+    // Sleep / wake decision and the NREM / REM cycle
+    function stepSleepWake(s, body) {
+      // wp = wake pressure: positive means "wake up now"
+      const wp = (body.lo - s.sp) * .5 + Math.max(0, body.ea - P.sleep) * .3 + (1 - Math.min(s.h, s.wt)) * .2;   // [need for sleep gone] + [alarm: arousal too high] + [hunger or thirst]
+      if (!s.asleep) {
+        if (s.sp >= body.up && body.ea < P.sleep && wp <= 0 && !s.cool) startSleep();   // tired enough, calm enough, and nothing would wake it straight away
+      } else if (wp > 0) {
+        wake(s.sp <= body.lo);                                            // natural wake = the pressure ran out; otherwise it was interrupted
+      } else {
+        // Ultradian cycle: NREM then REM, repeating. Later in the night REM gets longer and NREM shorter.
+        s.tin += DT; s.ut += DT * 60;
+        const prog = clamp01(s.tin / P.nightlen);                           // prog = how far through the expected night (uses nightlen, separate from expect so the debt target and cycle reference can differ)
+        const nrem = P.cycle * .75 * (1 - prog * .5), rem = P.cycle * .25 * (1 + prog * 2);   // lengths in minutes
+        if (s.ut >= nrem + rem) s.ut = 0;
+        behaviour = s.ut < nrem ? 'nrem' : 'rem';
+      }
+    }
+
+    /* ---- Behaviour and random events ---- */
+    // c = everything the rules can see: the agent's own state plus c.world. sat = how full is "full enough" (sleep-deprived agents need more food).
+    function chooseBehaviourAndRandomEvents(s, m, ea) {
+      const c = {
+        h: s.h, wt: s.wt, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
+        state: behaviour, asleep: s.asleep, temperament: TEMP, world: W
+      };
+      // decide on schedule (every P.decideevery ticks).
+      if (!s.asleep && N % P.decideevery === 0) decide(c);
+      for (const r of RANDOM) {                                           
+        // each random row rolls its chance, then checks its dependencies
+        if (Math.random() < r.chance * P.rate * (r.hp ? s.hp : 1) && r.when(c)) 
+        { if (r.event) Q.push(EVENT_BY_KEY[r.event]); if (r.act) r.act(W, s); c.asleep = s.asleep; c.state = behaviour; }   
+        // a row may change the agent (wake it), so refresh what the later rows see
+      }
+    }
+    // Write this tick into the history that the charts read
+    function record(s, m, body) {
+      H.push({ v: m.v, a: body.ea, d: m.d, bv: s.bv, ba: clamp(s.ba + body.offset), bd: s.bd, h: s.h, wt: s.wt, hp: s.hp, sp: s.sp, b: behaviour });
+      if (H.length > 600) H.shift();                                      // keep only the last 600 ticks
+    }
+
+    /* ============ Drawing ============ */
+    const COL = { v: '#14a39a', a: '#d99a00', d: '#8a63d2', h: '#3d9a2a', wt: '#2f7fd0', hp: '#b5651d', sp: '#888' };   // series colours
+    const GC = { threat: '#e04040', food: '#c9772b', social: '#d0488f', env: '#7a8a99', body: '#b5651d', sleep: '#4654d4', custom: '#666' };   // event group colours (for timeline tags + recent events chips). Sleep is blue-purple to distinguish from dominance line colour (#8a63d2).
+    // SER = lines on the timeline: [key, text key]. SHOW = which are drawn (the checkboxes in the variable panel).
+    const SER = [['v', 'val'], ['a', 'aro'], ['d', 'dom'], ['h', 'hun'], ['wt', 'hyd'], ['sp', 'slp'], ['hp', 'hlt']];
+    const SHOW = { v: 1, a: 1, d: 0, h: 1, wt: 1, sp: 0, hp: 0 };
+    const BASE_KEY = { v: 'bv', a: 'ba', d: 'bd' };   // which history field holds each line's baseline
+    const STRETCH = { h: 1, wt: 1, sp: 1, hp: 1 };     // these are 0..1, so they are stretched over the chart's -1..1 axis
+    let INK = '#000';   // INK = the page's text colour, re-read every frame so light/dark mode works
+
+    // Prepare a canvas: match the screen's pixel ratio, clear it, reset every drawing setting. Returns [ctx, width, height].
+    function fit(canvas) {
+      const ratio = devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+      if (canvas.width !== Math.round(w * ratio) || canvas.height !== Math.round(h * ratio)) { canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio); }
+      const x = canvas.getContext('2d');                                  // x = the 2D drawing context
+      x.setTransform(ratio, 0, 0, ratio, 0, 0); x.clearRect(0, 0, w, h);
+      x.globalAlpha = 1; x.lineWidth = 1; x.setLineDash([]); x.textAlign = 'left';   // settings persist between frames, so reset them
+      x.font = '12px system-ui,sans-serif';
+      x.fillStyle = x.strokeStyle = INK;
+      return [x, w, h];
+    }
+
+    // Time series. Top strip = behaviour (y=0-5). Tag strip = number badges (y=6-25, ABOVE the lines).
+    // Lines occupy y=lineTop..h-8 so tags never overlap the chart — no clearRect gap-knocking needed.
+    function drawTimeline() {
+      const [x, w, h] = fit($('#timeline'));
+      const pad = 24, lineTop = 28;
+      const Y = v => (lineTop + h - 8) / 2 - v * ((h - 8) - lineTop) / 2;   // Y: value (-1..1) to pixel row; lines occupy y=lineTop..h-8
+      const L = H.length, X = i => pad + (i + 600 - L) / 599 * (w - pad);   // X: history index to pixel column; newest sits at the right edge
+      x.globalAlpha = .25;
+      for (const g of [-1, -.5, 0, .5, 1]) { x.beginPath(); x.moveTo(pad, Y(g)); x.lineTo(w, Y(g)); x.stroke(); }
+      x.globalAlpha = .7;
+      for (const g of [1, 0, -1]) x.fillText(g, 2, Y(g) + 4);
+      MARKS.length = 0;
+      if (!L) return;
+      const tags = M.map(m => ({ m, i: m.n - (N - L) })).filter(o => o.i >= 0);   // tags that are still inside the chart window
+      x.globalAlpha = .25;
+      for (const { i } of tags) { x.beginPath(); x.moveTo(X(i), lineTop); x.lineTo(X(i), h); x.stroke(); }   
+      // faint vertical line per event, only across the line area (below the tag strip)
+      x.globalAlpha = 1;
+      H.forEach((p, i) => { x.fillStyle = ST[p.b].col; x.fillRect(X(i), 0, (w - pad) / 599 + 1, 5); });   // behaviour strip at the very top
+      const path = f => { x.beginPath(); H.forEach((p, i) => i ? x.lineTo(X(i), Y(f(p))) : x.moveTo(X(i), Y(f(p)))); x.stroke(); };
+      for (const [k] of SER) {
+        if (!SHOW[k]) continue;
+        x.strokeStyle = COL[k];
+        if (BASE_KEY[k]) { x.globalAlpha = .6; x.lineWidth = 1.5; x.setLineDash([4, 4]); path(p => p[BASE_KEY[k]]); }
+        x.globalAlpha = 1; x.lineWidth = 2.2; x.setLineDash([]); path(p => STRETCH[k] ? 2 * p[k] - 1 : p[k]);
+      }
+      // Number tags live in the tag strip above the line area. Each tag is colored by the primary event group
+      // of that tick (the first event in m.k), so you can scan the timeline visually — red = threat, orange = food, etc.
+      x.font = '11px system-ui,sans-serif'; x.textAlign = 'center';
+      for (const { m, i } of tags) {
+        const px = X(i), label = String(m.id), tw = x.measureText(label).width + 8;
+        const firstKey = m.k[0];
+        const g = (firstKey && EVENT_BY_KEY[firstKey]) ? EVENT_BY_KEY[firstKey].g : 'custom';
+        const col = GC[g] || GC.custom;
+        x.globalAlpha = .9; x.fillStyle = col; x.fillRect(px - tw / 2, 7, tw, 16);   // colored badge background in the tag strip
+        x.globalAlpha = 1; x.fillStyle = '#fff'; x.fillText(label, px, 18);            // white number on the badge
+        MARKS.push({ x: px, m });
+      }
+    }
+
+    // Valence (x axis) by arousal (y axis). The four quadrants come from Mendl et al. 2010, Fig. 1.
+    function drawMoodPlane() {
+      const [x, w, h] = fit($('#moodPlane'));
+      const X = v => w / 2 + v * (w / 2 - 14), Y = a => h / 2 - a * (h / 2 - 14);
+      x.globalAlpha = .3; x.strokeRect(14, 14, w - 28, h - 28);           // outer frame
+      x.beginPath(); x.moveTo(w / 2, 14); x.lineTo(w / 2, h - 14); x.moveTo(14, h / 2); x.lineTo(w - 14, h / 2); x.stroke();   // centre cross
+      x.globalAlpha = .12;
+      for (const g of [-.5, .5]) { x.beginPath(); x.moveTo(X(g), 14); x.lineTo(X(g), h - 14); x.moveTo(14, Y(g)); x.lineTo(w - 14, Y(g)); x.stroke(); }   // grid
+      x.globalAlpha = .75; x.textAlign = 'center';
+      x.fillText(t.hi, w / 2, 11); x.fillText(t.lo, w / 2, h - 3);
+      x.fillText(t.pos, w - 36, h / 2 - 4); x.fillText(t.neg, 36, h / 2 - 4);
+      x.textAlign = 'right'; x.fillText(t.q[0], w - 20, 32); x.fillText(t.q[1], w - 20, h - 22);   // Q1, Q2 (positive valence)
+      x.textAlign = 'left'; x.fillText(t.q[3], 20, 32); x.fillText(t.q[2], 20, h - 22);       // Q4, Q3 (negative valence)
+      const L = H.length; if (!L) return;
+      const trail = H.slice(-90); x.fillStyle = COL.v;                    // trail = the last 90 ticks
+      trail.forEach((p, i) => { x.globalAlpha = i / trail.length * .5; x.beginPath(); x.arc(X(p.v), Y(p.a), 3, 0, 7); x.fill(); });
+      const p = H[L - 1];
+      x.globalAlpha = .8; x.strokeStyle = COL.a; x.setLineDash([3, 3]);
+      x.beginPath(); x.arc(X(p.bv), Y(p.ba), 9, 0, 7); x.stroke();        // dashed ring = baseline
+      x.globalAlpha = 1; x.beginPath(); x.arc(X(p.v), Y(p.a), 7, 0, 7); x.fill();   // dot = current mood
+    }
+
+    // A gauge with a fixed track from lo to hi. The fill starts at 0 (or at lo if the track has no negative side).
+    // marks = optional values to mark with a vertical line (used for the sleep thresholds).
+    function gauge(sel, name, val, lo, hi, loTxt, hiTxt, col, marks = []) {
+      const [x, w, h] = fit($(sel));
+      const X = v => 14 + (v - lo) / (hi - lo) * (w - 28), y = 26;        // X: value to pixel column
+      x.globalAlpha = .3; x.lineWidth = 6; x.beginPath(); x.moveTo(X(lo), y); x.lineTo(X(hi), y); x.stroke();   // track
+      if (lo < 0) { x.lineWidth = 1; x.beginPath(); x.moveTo(X(0), y - 8); x.lineTo(X(0), y + 8); x.stroke(); } // zero mark
+      x.globalAlpha = .8; x.fillText(loTxt, 6, h - 4); x.textAlign = 'right'; x.fillText(hiTxt, w - 6, h - 4);
+      x.textAlign = 'left';
+      if (!H.length) return;
+      x.globalAlpha = 1; x.strokeStyle = x.fillStyle = col; x.lineWidth = 6;
+      x.beginPath(); x.moveTo(X(Math.max(lo, 0)), y); x.lineTo(X(val), y); x.stroke();   // fill
+      x.beginPath(); x.arc(X(val), y, 8, 0, 7); x.fill();                                // marker
+      x.strokeStyle = INK; x.lineWidth = 2;
+      for (const m of marks) { const mm = Math.max(lo, Math.min(hi, m)); x.beginPath(); x.moveTo(X(mm), y - 11); x.lineTo(X(mm), y + 11); x.stroke(); }
+      x.fillStyle = INK; x.textAlign = 'center'; x.fillText(name + ' ' + val.toFixed(2), w / 2, 11);
+    }
+
+    // Update the numbers, labels, and event list
+    let lastLogKey = '';   // lastLogKey = what the event list showed last time, so it is rebuilt only when it changes
+    function readout() {
+      setText('#clockText', fmt('hour', W.hour));
+      renderSurrounding();   // Rebuild the surrounding list every frame (objects age and despawn, TTL counts down)
+      renderMemory();        //  rebuild the memory list every frame (learned associations update on event fire)
+      const logKey = lang + ':' + evSeq;
+      if (logKey !== lastLogKey) {
+        lastLogKey = logKey;
+        $('#eventLog').innerHTML = LOG.slice(0, 10).map(l => {
+          // Each entry: a colored number badge (group of the first event in the tick) + time + color-coded chips (one per event).
+          const firstE = l.k.length > 0 ? EVENT_BY_KEY[l.k[0]] : null;
+          const numG = firstE ? firstE.g : 'custom';
+          const numCol = GC[numG] || GC.custom;
+          const chips = l.k.map(k => {
+            const e = EVENT_BY_KEY[k];
+            const g = e ? e.g : 'custom';
+            const c = GC[g] || GC.custom;
+            return `<span class="evChip" style="background:${c}">${eventLabel(k)}</span>`;
+          }).join('');
+          return `<div class="evRow"><span class="evNum" style="background:${numCol}">${l.id}</span><span class="evTime">${l.time}</span>${chips}</div>`;
+        }).join('') || `<small>${t.logEmpty}</small>`;
+      }
+      const L = H.length;
+      if (!L) { setText('#moodLabel', ''); setText('#behaviourLabel', ''); setText('#status', ''); return; }   // "nothing yet" e.g. just after Reset
+      const p = H[L - 1], f = (v, b) => v.toFixed(2) + (b === undefined ? '' : ' (' + b.toFixed(2) + ')');   // baseline in compact parens, e.g. "-0.38"; baseline is also drawn as the dashed line on the chart
+      for (const [k] of SER) setText('#value_' + k, f(p[k], BASE_KEY[k] && p[BASE_KEY[k]]));
+      setText('#sleepDebt', t.debt + ': ' + S.dbt.toFixed(1) + 'h · ' + t.malaiseLabel + ': ' + S.malaise.toFixed(2));   // sleep debt (hours) + malaise (shared 0..1)
+      const quad = p.v >= 0 ? (p.a >= 0 ? 0 : 1) : (p.a >= 0 ? 3 : 2);   // quadrant index: 0 Q1 excited, 1 Q2 calm, 2 Q3 sad, 3 Q4 anxious
+      setText('#moodLabel', Math.abs(p.v) < .15 && Math.abs(p.a) < .15 ? t.neutral : t.q[quad]);
+      setText('#behaviourLabel', t.st[behaviour]); $('#behaviourLabel').style.color = ST[behaviour].col;
+      setText('#status', [S.ill && t.sick, S.bv < P.thr && t.depl].filter(Boolean).join(' ') || t.hint);   // warnings first, otherwise the hint
+    }
+
+    /* ============ Main loop ============ */
+    let last = performance.now(), owed = 0;   // last = previous frame time, owed = accumulated ticks still to run
+    function frame(now) {
+      INK = getComputedStyle(document.body).color;
+      const dt = Math.min(.25, (now - last) / 1000); last = now;          // seconds since last frame, capped at 0.25
+      // 10 ticks per second at speed 1. At most 60 ticks per frame: if the page lags, the sim falls behind real time instead of freezing the tab.
+      if (run) { owed += dt * 10 * P.speed; let n = 0; while (owed >= 1 && n++ < 60) { tick(); owed--; } }
+      const p = H[H.length - 1] || S, level = bodyClock(S.ct);            // S also has d, h, wt, hp and sp, so it stands in before the first tick
+      drawTimeline(); drawMoodPlane();
+      gauge('#gaugeDominance', t.dom, p.d, -1, 1, t.sb, t.dm, COL.d);
+      gauge('#gaugeHunger', t.hun, p.h, 0, 1, t.sv, t.fl, COL.h);
+      gauge('#gaugeHydration', t.hyd, p.wt, 0, 1, t.dh, t.hy, COL.wt);
+      gauge('#gaugeHealth', t.hlt, p.hp, 0, 1, t.hl0, t.hl1, COL.hp);
+      gauge('#gaugeLight', t.light, W.light, 0, 1, t.dark, t.bright, '#e0b020');
+      gauge('#gaugeSleep', t.slp, p.sp, 0, 1, t.rest, t.tired, COL.sp, [LOW + P.camp * level, UP + P.camp * level]);   // black lines = wake and sleep thresholds
+      gauge('#gaugeTemp', t.tempg, W.temp, -10, 40, t.cold, t.hot, '#d97740', [K.tempIdeal]);   // ambient temperature with comfort mark at K.tempIdeal (20°C)
+      readout();
+      requestAnimationFrame(frame);
+    }
+
+    /* ============ UI ============ */
+    const sign = x => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(1);   // format a number with + or −
+    // fmt = format a slider value for display. Hours become HH:MM (rounded as whole minutes, so ":60" cannot appear).
+    const fmt = (key, v, step) => {
+      if (key === 'hour') { const m = Math.round(v * 60) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+      return (+v).toFixed((String(step).split('.')[1] || '').length);
+    };
+    const clockLabel = () => {   // updates the optClock checkbox's tooltip when the speed slider changes (label text is just t.clock, set once by addCheck)
+      const el = $('#optClockLabel');
+      if (el && el.parentElement) el.parentElement.title = t.clockTip.replace('{s}', (2 / P.speed).toFixed(1));
+    };
+    const evName = e => t.ev[e.k] || e.k.replace(/_/g, ' ').replace(/^./, ch => ch.toUpperCase());          // translated name, or made from the key
+    const eventLabel = k => EVENT_BY_KEY[k] ? evName(EVENT_BY_KEY[k]) : t.cust;                              // name for an event key ('custom' has no table row)
+    // glyph = three little bars (valence, arousal, dominance) in the series colours: up = the event raises it, down = lowers it
+    const glyph = e => `<svg width="38" height="22" aria-hidden="true">${['v', 'a', 'd'].map((k, i) => {
+      const impact = e.amb ? 0 : e[k], bar = Math.abs(impact) * 10;
+      return `<rect x="${i * 13}" y="${impact >= 0 ? 11 - bar : 11}" width="9" height="${Math.max(bar, .6)}" fill="${COL[k]}"/>`;
+    }).join('')}<line x1="0" x2="38" y1="11" y2="11" stroke="currentColor" opacity=".4"/></svg>`;
+
+    // Add one labelled slider to `box`. The input event is handled by a delegated listener
+    // on #params in wireUI() (which dispatches by slider ID prefix) — no per-element
+    // attachment here, so re-rendering the parameter tree doesn't re-attach N listeners.
+    // Ids: slider_<key>, out_<key>.
+    function addSlider(box, key, label, min, max, step, val) {
+      const d = document.createElement('div');
+      d.innerHTML = `<label>${label} <output id="out_${key}"></output><br><input type="range" id="slider_${key}" min="${min}" max="${max}" step="${step}" style="width:100%"></label>`;
+      box.appendChild(d);
+      const input = d.querySelector('input'), out = d.querySelector('output');
+      input.value = val; out.textContent = fmt(key, val, step);
+    }
+    // Move a slider to match a value the code changed (the running clock)
+    function sync(key) {
+      const input = $('#slider_' + key), row = SLIDERS.find(r => r[0] === key); if (!input || !row) return;   // only the main sliders have a row
+      const v = getParam(key);   // 'hour' lives in W now; everything else in P
+      input.value = v; $('#out_' + key).textContent = fmt(key, v, row[3]);
+    }
+    // A titled box with a grid inside (used for event groups) and a collapsible branch of the parameter tree.
+    function addGroup(parent, title) {
+      const f = document.createElement('fieldset');
+      f.innerHTML = `<legend>${title}</legend><div class="grid"></div>`;
+      parent.appendChild(f);
+      return f.lastChild;
+    }
+    function addBranch(parent, title) {
+      const d = document.createElement('details');
+      d.innerHTML = `<summary>${title}</summary><div class="grid"></div>`;
+      parent.appendChild(d);
+      return d.lastChild;
+    }
+
+    // buildText = set all translated text on the page (data-t, data-a, labels). Called from build() on load + language change.
+    function buildText() {
+      t = T[lang]; document.documentElement.lang = lang; document.title = t.title;
+      document.querySelectorAll('[data-t]').forEach(el => el.textContent = t[el.dataset.t]);
+      document.querySelectorAll('[data-a]').forEach(el => { el.setAttribute('aria-label', t[el.dataset.a]); el.title = t[el.dataset.a]; });
+      $('#pause').textContent = run ? t.pause : t.resume;
+      clockLabel();
+      lastLogKey = '';
+      $('#behaviourLegend').innerHTML = Object.keys(ST).map(k => `<span style="color:${ST[k].col}">\u25a0</span> ${t.st[k]}`).join(' &nbsp; ');
+    }
+
+    // buildVariablePanel = the checkboxes + live numbers next to the timeline.
+    // The change event is delegated on #variableList in wireUI() — no per-element attachment.
+    function buildVariablePanel() {
+      $('#variableList').innerHTML = SER.map(([k, n]) => `<label><input type="checkbox" data-s="${k}" ${SHOW[k] ? 'checked' : ''}> <span style="color:${COL[k]}">\u25a0</span> ${t[n]} <b id="value_${k}"></b></label><br>`).join('');
+    }
+
+
+    // buildParameterTree = all parameter sliders grouped by branch + temperament sub-branch.
+    // input + change events on the sliders and optClock/optSun/optCircadian checkboxes are
+    // delegated on #params in wireUI() — no per-element attachments here, so re-rendering
+    // the parameter tree (e.g. on language change) doesn't re-attach N listeners.
+    function buildParameterTree() {
+      const root = $('#params'); root.innerHTML = '';
+      [['gm', 0], ['gn', 1], ['gs', 2], ['gw', 3], ['gh', 4], ['gb', 5], ['gmf', 6], ['gl', 7], ['gpv', 8]].forEach(([title, group]) => {
+        const branch = addBranch(root, t[title]);
+        SLIDERS.filter(row => row[4] === group).forEach(([k, min, max, step]) => {
+          addSlider(branch, k, t.p[k], min, max, step, getParam(k));
+          const tip = t.pd[k];
+          if (tip) { const el = $('#slider_' + k); el.title = tip; if (el.parentElement) el.parentElement.title = tip; }
+        });
+      });
+      const tempBranch = addBranch(root, t.temph);
+      Object.keys(TEMP).forEach(k => addSlider(tempBranch, 'temp_' + k, t.tp[k], 0, 1, .05, TEMP[k]));
+      // Clock / light / rhythm options: built dynamically here so they inherit the same bordered-box style
+      // as the other parameter branches. Each checkbox's change event is handled by the delegated listener
+      // on #params (which dispatches on the checkbox ID).
+      const woptBranch = addBranch(root, t.wopt);
+      const addCheck = (id, labelKey, tipKey, checked, spanId) => {
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:block;margin:2px 0';
+        const text = typeof labelKey === 'string' ? t[labelKey] : labelKey();
+        const tip = typeof tipKey === 'string' ? t[tipKey] : (tipKey ? tipKey() : '');
+        lbl.innerHTML = `<input type="checkbox" id="${id}" ${checked ? 'checked' : ''}> <span${spanId ? ` id="${spanId}"` : ''}>${text}</span>`;
+        if (tip) lbl.title = tip;
+        woptBranch.appendChild(lbl);
+        return lbl;
+      };
+      // optClock's span gets id="optClockLabel" so clockLabel() can update its tooltip when the speed slider changes.
+      addCheck('optClock', 'clock', () => t.clockTip.replace('{s}', (2 / P.speed).toFixed(1)), clock, 'optClockLabel');
+      addCheck('optSun', 'sun', 'sunTip', W.sun);
+      addCheck('optCircadian', 'circ', 'circTip', circOn);
+    }
+
+    // buildCustomEventComposer = the three "+ add pulse" buttons + queue list.
+    // The click event is delegated on #customButtons in wireUI() — each button carries data-dim.
+    function buildCustomEventComposer() {
+      $('#customButtons').innerHTML = '';
+      [['v', 'val', '#14a39a'], ['a', 'aro', '#d99a00'], ['d', 'dom', '#8a63d2']].forEach(([dim, lbl, col]) => {
+        const btn = document.createElement('button');
+        btn.id = 'cadd_' + dim;
+        btn.dataset.dim = dim;
+        btn.innerHTML = `<span style="color:${col}">\u25a0</span> ${t.custAddFmt.replace('{dim}', t[lbl])}`;
+        btn.style.borderColor = col;
+        $('#customButtons').appendChild(btn);
+      });
+      renderCustomQueue();
+    }
+
+    // buildEventGrid = the preset event buttons, grouped by category.
+    // Click events are delegated on #events in wireUI() — buttons carry data-event-key,
+    // data-cust-idx, or data-cust-del-idx depending on which action they trigger.
+    function buildEventGrid() {
+      $('#events').innerHTML = '';
+      for (const g in t.eg) {
+        const box = addGroup($('#events'), t.eg[g]); box.classList.add('eventGrid');
+        EVENTS.filter(e => e.g === g && !e.hide).forEach(e => {
+          const button = document.createElement('button');
+          button.style.cssText = 'width:100%;text-align:left';
+          button.dataset.eventKey = e.k;
+          button.title = e.amb ? t.amb
+            : e.pulses ? e.pulses.map(p => `${p.dim === 'v' ? t.val : p.dim === 'a' ? t.aro : t.dom} ${sign(p.amp)} (\u03c4=${p.tau})`).join('  \u00b7  ')
+              : `${t.val} ${sign(e.v)}  ${t.aro} ${sign(e.a)}  ${t.dom} ${sign(e.d)}`;
+          button.innerHTML = `${glyph(e)}<br><b>${evName(e)}</b>${e.amb ? `<br><small>${t.amb}</small>` : ''}`;
+          box.appendChild(button);
+        });
+      }
+      // Custom events group (user-defined, saved to localStorage). Each entry is a button + small × delete.
+      const custBox = addGroup($('#events'), t.custEventGroupCustom); custBox.classList.add('eventGrid');
+      if (CUSTOM_EVENTS.length === 0) {
+        const empty = document.createElement('small');
+        empty.textContent = t.custEmpty;
+        empty.style.cssText = 'opacity:.6;grid-column:1/-1';
+        custBox.appendChild(empty);
+      } else {
+        CUSTOM_EVENTS.forEach((e, i) => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;gap:4px;align-items:stretch';
+          const button = document.createElement('button');
+          button.style.cssText = 'flex:1;text-align:left;min-width:0';
+          button.dataset.custIdx = i;
+          const sideFx = [];
+          if (e.hp) sideFx.push(`hp ${sign(e.hp)}`);
+          if (e.food) sideFx.push(`${t.custEventFood} ${e.food}`);
+          if (e.water) sideFx.push(`${t.custEventWater} ${e.water}`);
+          button.title = `${t.val} ${sign(e.v)}  ${t.aro} ${sign(e.a)}  ${t.dom} ${sign(e.d)}` + (sideFx.length ? '  ·  ' + sideFx.join('  ') : '');
+          button.innerHTML = `${glyph(e)}<br><b>${evName(e)}</b>`;
+          const del = document.createElement('button');
+          del.textContent = '×';
+          del.dataset.custDelIdx = i;
+          del.style.cssText = 'flex:0 0 auto;width:24px;padding:0;background:transparent;border:1px solid currentColor;border-radius:3px;cursor:pointer;color:#e04040;font-size:14px;line-height:1';
+          del.title = t.custEventDelete;
+          wrap.appendChild(button);
+          wrap.appendChild(del);
+          custBox.appendChild(wrap);
+        });
+      }
+    }
+
+    // ---------- Bestiary + memory panel UI (moved here from the Memory & learning section) ----------
+    // These four functions read ARCHETYPES / TYPE_TO_US / memory / objectSvg to build/refresh
+    // the bestiary list (#bestiary), the add-archetype form (#archForm), the custom-event
+    // editor form (#custEventForm), and the memory list (#memoryList). Pure DOM — no sim logic.
+    // (Originally colocated with the memory Map for "nearby data" reasons; moved here so the
+    // Memory & learning section contains only memory logic + lifecycle.)
+
+    // renderBestiary = show the archetype catalog grouped by event group (threat/food/social/env/body/sleep/neutral).
+    // Each group header uses t.eg[g] (existing translation). Neutral (no events) uses t.eg.neutral.
+    function renderBestiary() {
+      const list = $('#bestiary');
+      if (!list) return;
+      const byGroup = {};
+      for (const [name, arch] of Object.entries(ARCHETYPES)) {
+        const firstEvent = arch.events[0];
+        const g = firstEvent ? (EVENT_BY_KEY[firstEvent]?.g || 'other') : 'neutral';
+        (byGroup[g] ??= []).push([name, arch]);
+      }
+      // Sort groups in a stable, meaningful order
+      const groupOrder = ['threat', 'food', 'social', 'env', 'body', 'sleep', 'neutral', 'other'];
+      const sortedGroups = Object.entries(byGroup).sort((a, b) => groupOrder.indexOf(a[0]) - groupOrder.indexOf(b[0]));
+      list.innerHTML = sortedGroups.map(([g, entries]) => {
+        const groupLabel = t.eg[g] || g;
+        const items = entries.map(([name, arch]) => {
+          const feats = `${t.feat.size[arch.features.size]} \u00b7 ${t.feat.color[arch.features.color]} \u00b7 ${t.feat.shape[arch.features.shape]}`;
+          return `<div class="bestItem">${objectSvg(arch.features)} <b>${name}</b> ${feats} <button class="spawnArch" data-name="${name}">+</button></div>`;
+        }).join('');
+        return `<div class="bestCat">${groupLabel}</div><div class="bestCatGrid">${items}</div>`;
+      }).join('');
+      // Click on .spawnArch buttons is delegated on #bestiary in wireUI().
+    }
+
+    // buildArchForm = populate the add-archetype modal's dropdowns (translated). Called from build().
+    // The "Outcome" dropdown now lists EVENTS directly (no more TYPE_TO_US indirection) — the user picks
+    // which event fires when this archetype is approached. Multi-event archetypes (like rival_bird) are
+    // not editable via this form; edit ARCHETYPES in source for those.
+    function buildArchForm() {
+      const form = $('#archForm');
+      if (!form) return;
+      form.innerHTML = `
+    <label>${t.archName} <input type="text" id="archName" size="10"></label>
+    <label>${t.archUT} <select id="archUT">${EVENTS.filter(e => !e.hide).map(e => `<option value="${e.k}">${evName(e)}</option>`).join('')}</select></label>
+    <label>${t.archSize} <select id="archSize">${SURR_FEATURES.size.map(s => `<option value="${s}">${t.feat.size[s]}</option>`).join('')}</select></label>
+    <label>${t.archColor} <select id="archColor">${SURR_FEATURES.color.map(s => `<option value="${s}">${t.feat.color[s]}</option>`).join('')}</select></label>
+    <label>${t.archShape} <select id="archShape">${SURR_FEATURES.shape.map(s => `<option value="${s}">${t.feat.shape[s]}</option>`).join('')}</select></label>
+  `;
+    }
+
+    // buildCustEventForm = populate the custom-event editor modal's fields (translated). Called from build().
+    // The form fields: name (text), group (dropdown), v/a/d impacts (number -1..1), hp/food/water (number, optional).
+    // On Create, the form values are read by the #custEventCreate click handler (below the script body).
+    function buildCustEventForm() {
+      const form = $('#custEventForm');
+      if (!form) return;
+      const groups = ['threat', 'food', 'social', 'env', 'body', 'sleep', 'custom'];
+      form.innerHTML = `
+    <label>${t.custEventName} <input type="text" id="custEventName" size="14"></label>
+    <label>${t.custEventGroup} <select id="custEventGroupSelect">${groups.map(g => `<option value="${g}">${t.eg[g] || g}</option>`).join('')}</select></label>
+    <label>${t.custEventV} <input type="number" id="custEventV" step="0.1" value="0" min="-1" max="1"></label>
+    <label>${t.custEventA} <input type="number" id="custEventA" step="0.1" value="0" min="-1" max="1"></label>
+    <label>${t.custEventD} <input type="number" id="custEventD" step="0.1" value="0" min="-1" max="1"></label>
+    <label>${t.custEventHP} <input type="number" id="custEventHP" step="0.1" value="0" min="-1" max="1"></label>
+    <label>${t.custEventFood} <input type="number" id="custEventFood" step="0.1" value="0" min="0" max="1"></label>
+    <label>${t.custEventWater} <input type="number" id="custEventWater" step="0.1" value="0" min="0" max="1"></label>
+  `;
+    }
+
+    // renderMemory = rebuild the memory list DOM. Called every frame from readout().
+    function renderMemory() {
+      const list = $('#memoryList');
+      if (!list) return;
+      if (memory.size === 0) { list.innerHTML = `<small>${t.memEmpty}</small>`; return; }
+      list.innerHTML = Array.from(memory.entries())
+        .sort((a, b) => a[1].valence - b[1].valence)   // sort by valence: most negative (fear) first, most positive (attraction) last
+        .map(([key, entry]) => {
+          const [size, color, shape] = key.split('|');
+          const features = { size, color, shape };
+          const valCol = entry.valence >= 0 ? COL.h : COL.v;   // green for positive, teal for negative
+          const valStr = (entry.valence >= 0 ? '+' : '') + entry.valence.toFixed(2);
+          const feats = `${t.feat.size[size]} \u00b7 ${t.feat.color[color]} \u00b7 ${t.feat.shape[shape]}`;
+          const sal = Math.abs(entry.valence) * entry.conf;   // 0..1, how much this memory matters
+          const opa = (.08 + sal * .8).toFixed(2);              // faded for weak memories, bold for strong ones
+          return `<div class="memItem" style="background:rgba(127,127,127,${opa})">${objectSvg(features)} ${feats} <span class="memVal" style="color:${valCol}">${valStr}</span> <span class="memConf">conf ${(entry.conf * 100).toFixed(0)}%</span> <span class="memCount">\u00d7${entry.count}</span></div>`;
+        }).join('');
+    }
+
+    // (Re)build everything that holds text. Runs at load and on every language change.
+    function build() {
+      buildText();
+      buildVariablePanel();
+      buildParameterTree();
+      buildCustomEventComposer();
+      buildEventGrid();
+      $('#slider_hour').disabled = clock;
+      renderRefs();
+      renderBestiary();
+      buildArchForm();
+      buildCustEventForm();
+    }
+
+    // Render the staged custom-event pulse queue. Each item is a row with inline-editable
+    // amp + τ sliders (no per-dim defaults — every spike starts at amp=0, τ=10 and is tuned in place).
+    // Called from build() (so it re-renders on language change) and whenever the queue changes.
+    const TICK_REAL_S = 0.1;   // seconds of real time per tick at speed 1 (10 ticks/sec)
+    const TICK_SIM_MIN = 3;    // sim minutes per tick (DT = 0.05 sim hours)
+    const PULSE_LIFE = 5.3;   // ~exp(-x) drop threshold: pulse fades to <0.5% of amp after ~5.3×τ ticks
+    function fmtLife(tau) {
+      const realS = (PULSE_LIFE * tau * TICK_REAL_S).toFixed(1);
+      const simMin = Math.round(PULSE_LIFE * tau * TICK_SIM_MIN);
+      return `~${realS}s / ${simMin} sim-min`;
+    }
+    function renderCustomQueue() {
+      const q = $('#customQueue');
+      if (!q) return;
+      q.innerHTML = customQueue.length === 0
+        ? `<small>${t.custEmpty}</small>`
+        : customQueue.map((p, i) => {
+          const lbl = p.dim === 'v' ? 'val' : p.dim === 'a' ? 'aro' : 'dom';
+          return `<div class="queueItem">
+          <span style="color:${COL[p.dim]}">■</span> ${t[lbl]}
+          <label>${t.custAmp} <input type="range" class="qsl_a" data-idx="${i}" min="-1" max="1" step=".05" value="${p.amp}"><output>${p.amp.toFixed(2)}</output></label>
+          <label>${t.custTau} <input type="range" class="qsl_t" data-idx="${i}" min="1" max="500" step="1" value="${p.tau}"><output>${p.tau}</output></label>
+          <span class="life">${fmtLife(p.tau)}</span>
+          <button class="rmCustom" data-idx="${i}" aria-label="×">×</button>
+        </div>`;
+        }).join('');
+      // input + click events are delegated on #customQueue in wireUI() — no per-element attachments here.
+    }
+    /* ============ UI event wiring (delegated) ============ */
+    // wireUI attaches every event listener ONCE on script load. Listeners on stable
+    // parents (#customQueue, #bestiary, #events, #variableList, #params, #customButtons,
+    // #timeline) catch clicks/changes/inputs from their children via event bubbling —
+    // no re-attachment when build() re-renders the DOM on language change. Static
+    // element handlers (#pause, #reset, #sidebtn, #lang, modal open + create buttons)
+    // attach once here too.
+    //
+    // Convention: every dynamically-created interactive element carries a data-* attribute
+    // (data-idx, data-type, data-event-key, data-cust-idx, data-cust-del-idx, data-dim,
+    // data-s) so the delegated handler can identify which child was acted on. The older
+    // forEach(b => b.onclick = ...) patterns were dropped during the delegation refactor.
+    function wireUI() {
+      // ===== Static button handlers (attach once) =====
+      $('#pause').addEventListener('click', () => { run = !run; $('#pause').textContent = run ? t.pause : t.resume; });
+      $('#reset').addEventListener('click', init);
+      $('#sidebtn').addEventListener('click', () => { const side = $('#side'); side.hidden = !side.hidden; $('#sidebtn').setAttribute('aria-expanded', !side.hidden); });
+      $('#lang').addEventListener('click', () => { lang = lang === 'en' ? 'cs' : 'en'; build(); });
+
+      // Custom event composer buttons
+      $('#fireCustom').addEventListener('click', () => {
+        if (customQueue.length === 0) return;                              // nothing staged → no-op (avoids a free mood blip)
+        Q.push({ g: 'custom', k: 'custom', pulses: customQueue.map(p => ({ ...p })) });   // pulses go straight through pulsesOf() — no SHAPE fallback. Salience is calculated from the pulse amps.
+      });
+      $('#clearCustom').addEventListener('click', () => { customQueue.length = 0; renderCustomQueue(); });
+      $('#randomEvent').addEventListener('click', () => {
+        // Pick a random non-sleep event, decompose it into pulses (via pulsesOf), and load them into the custom queue.
+        // The user can then inspect / adjust / fire — no more firing straight to Q. (For ambiguous events the impacts are read through the current baseline mood, same as in fireEvents.)
+        const pool = EVENTS.filter(e => e.g !== 'sleep');
+        const e = pool[Math.floor(Math.random() * pool.length)];
+        const imp = e.amb ? { v: K.ambValence * S.bv, a: K.ambArousal + K.ambArousalBase * S.ba, d: 0 } : e;
+        customQueue.length = 0;
+        for (const p of pulsesOf(e, imp)) customQueue.push({ dim: p.dim, amp: p.amp, tau: p.tau });
+        renderCustomQueue();
+      });
+
+      // Modal open buttons
+      $('#refs').addEventListener('click', () => { $('#refsModal').hidden = false; });
+      $('#openArchEditor').addEventListener('click', () => { $('#archModal').hidden = false; });
+      $('#openCustEventEditor').addEventListener('click', () => { $('#custEventModal').hidden = false; });
+
+      // Modal "create" buttons
+      $('#archCreate').addEventListener('click', () => {
+        const form = $('#archForm');
+        const name = form.querySelector('#archName').value.trim();
+        if (!name || ARCHETYPES[name]) return;
+        ARCHETYPES[name] = {
+          features: {
+            size: form.querySelector('#archSize').value,
+            color: form.querySelector('#archColor').value,
+            shape: form.querySelector('#archShape').value,
+          },
+          events: [form.querySelector('#archUT').value],   // single event (the picked one) — for multi-event archetypes, edit source
+        };
+        renderBestiary();
+        $('#archModal').hidden = true;
+      });
+      $('#custEventCreate').addEventListener('click', () => {
+        const form = $('#custEventForm');
+        const rawName = form.querySelector('#custEventName').value.trim();
+        if (!rawName) return;
+        // Sanitize name → event key: lowercase, replace non-alphanumeric with _, prefix 'custom_' to avoid collisions with built-in keys.
+        const k = 'custom_' + rawName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        // Refuse if a custom event with this key already exists (avoid duplicates).
+        if (CUSTOM_EVENTS.some(e => e.k === k)) return;
+        const num = id => { const v = parseFloat(form.querySelector(id).value); return isNaN(v) ? 0 : v; };
+        const e = { g: form.querySelector('#custEventGroupSelect').value, k, v: num('#custEventV'), a: num('#custEventA'), d: num('#custEventD') };
+        const hp = num('#custEventHP'), food = num('#custEventFood'), water = num('#custEventWater');
+        if (hp) e.hp = hp;
+        if (food) e.food = food;
+        if (water) e.water = water;
+        CUSTOM_EVENTS.push(e);
+        saveCustomEvents();
+        buildEventGrid();
+        $('#custEventModal').hidden = true;
+        // Clear the form for next time
+        form.querySelector('#custEventName').value = '';
+      });
+
+      // ===== Timeline hover (delegated on #timeline canvas) =====
+      // Hovering a numbered tag on the timeline shows which events it stands for. When no tag is hovered,
+      // the title is cleared (so the canvas doesn't carry a persistent "Mood over time" tooltip that
+      // flickers on every mouse move). Hit zone widened to 14px (was 7) so the numbers are actually hoverable.
+      $('#timeline').addEventListener('mousemove', e => {
+        const px = e.clientX - e.target.getBoundingClientRect().left;
+        const tag = MARKS.find(mk => Math.abs(mk.x - px) < 14);
+        e.target.title = tag ? '#' + tag.m.id + ' · ' + tag.m.k.map(eventLabel).join(', ') : '';
+      });
+      $('#timeline').addEventListener('mouseleave', e => { e.target.title = ''; });
+
+      // ===== Variable panel checkboxes — delegate on #variableList =====
+      $('#variableList').addEventListener('change', e => {
+        const box = e.target.closest('input[type=checkbox][data-s]');
+        if (!box) return;
+        SHOW[box.dataset.s] = box.checked;
+      });
+
+      // ===== #params: slider input + optClock/optSun/optCircadian change (delegated) =====
+      // Sliders dispatch by ID prefix: 'slider_temp_*' writes to TEMP, others write to P via setParam.
+      // 'speed' is special-cased to also refresh the optClock tooltip.
+      $('#params').addEventListener('input', e => {
+        const slider = e.target.closest('input[type=range]');
+        if (!slider || !slider.id || !slider.id.startsWith('slider_')) return;
+        const k = slider.id.slice('slider_'.length);
+        const v = +slider.value;
+        const out = document.getElementById('out_' + k);
+        if (out) out.textContent = fmt(k, v, slider.step);
+        if (k.startsWith('temp_')) {
+          TEMP[k.slice('temp_'.length)] = v;
+        } else {
+          setParam(k, v);
+          if (k === 'speed') clockLabel();
+        }
+      });
+      $('#params').addEventListener('change', e => {
+        const box = e.target.closest('input[type=checkbox]');
+        if (!box) return;
+        if (box.id === 'optClock') {
+          clock = box.checked;
+          const sliderHour = document.getElementById('slider_hour');
+          if (sliderHour) sliderHour.disabled = clock;
+        } else if (box.id === 'optSun') {
+          W.sun = box.checked;
+          deriveWorld();   // recompute light immediately so the gauge updates without needing a tick
+        } else if (box.id === 'optCircadian') {
+          circOn = box.checked;
+        }
+      });
+
+      // ===== Bestiary spawn buttons — delegate on #bestiary =====
+      $('#bestiary').addEventListener('click', e => {
+        const btn = e.target.closest('.spawnArch');
+        if (!btn) return;
+        const name = btn.dataset.name;
+        if (ARCHETYPES[name]) spawnObject(name);
+        renderSurrounding();
+      });
+
+      // ===== Custom-event add buttons — delegate on #customButtons =====
+      $('#customButtons').addEventListener('click', e => {
+        const btn = e.target.closest('button[data-dim]');
+        if (!btn) return;
+        customQueue.push({ dim: btn.dataset.dim, amp: 0, tau: 10 });
+        renderCustomQueue();
+      });
+
+      // ===== Custom queue: amp/τ sliders (input) + remove buttons (click) — delegate on #customQueue =====
+      $('#customQueue').addEventListener('input', e => {
+        const aSlider = e.target.closest('.qsl_a');
+        if (aSlider) {
+          const i = +aSlider.dataset.idx;
+          customQueue[i].amp = +aSlider.value;
+          aSlider.parentElement.querySelector('output').textContent = (+aSlider.value).toFixed(2);
+          return;
+        }
+        const tSlider = e.target.closest('.qsl_t');
+        if (tSlider) {
+          const i = +tSlider.dataset.idx;
+          customQueue[i].tau = +tSlider.value;
+          tSlider.parentElement.querySelector('output').textContent = tSlider.value;
+          const item = tSlider.closest('.queueItem');
+          if (item) item.querySelector('.life').textContent = fmtLife(+tSlider.value);
+          return;
+        }
+      });
+      $('#customQueue').addEventListener('click', e => {
+        const rmBtn = e.target.closest('.rmCustom');
+        if (!rmBtn) return;
+        customQueue.splice(+rmBtn.dataset.idx, 1);
+        renderCustomQueue();
+      });
+
+      // ===== Event grid: preset buttons + custom event buttons + delete buttons — delegate on #events =====
+      $('#events').addEventListener('click', e => {
+        // Delete button on a saved custom event
+        const del = e.target.closest('button[data-cust-del-idx]');
+        if (del) {
+          CUSTOM_EVENTS.splice(+del.dataset.custDelIdx, 1);
+          saveCustomEvents();
+          buildEventGrid();
+          return;
+        }
+        // Saved custom event fire button
+        const custBtn = e.target.closest('button[data-cust-idx]');
+        if (custBtn) {
+          Q.push(CUSTOM_EVENTS[+custBtn.dataset.custIdx]);   // fire the saved event directly (no force flag, no act — just push to Q)
+          return;
+        }
+        // Preset event button
+        const evtBtn = e.target.closest('button[data-event-key]');
+        if (evtBtn) {
+          const ev = EVENT_BY_KEY[evtBtn.dataset.eventKey];
+          if (ev) Q.push(ev.g === 'sleep' ? { ...ev, force: true } : ev);
+          return;
+        }
+      });
+
+      // ===== Escape closes all modals =====
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { $('#refsModal').hidden = true; $('#archModal').hidden = true; $('#custEventModal').hidden = true; }
+      });
+    }
+
+    build();
+    wireUI();   // attach all event listeners ONCE — survives build() re-runs on language change
+    requestAnimationFrame(frame);
+
+    /* ============ References modal ============ */
+    // Renders the bibliography from t.refs into the modal. Called from build() so it tracks language changes.
+    // Refs are grouped under their `topic` field — emitted as a small uppercase header whenever the topic changes.
+    function renderRefs() {
+      let html = '', lastTopic = null;
+      for (const r of t.refs) {
+        if (r.topic !== lastTopic) { html += `<h3 class="refTopic">${r.topic}</h3>`; lastTopic = r.topic; }
+        html += `<div class="ref"><cite>${r.cite}</cite><div class="desc">${r.desc}</div><div class="where">${r.where}</div></div>`;
+      }
+      $('#refsList').innerHTML = html;
+    }
+  </script>
+</body>
+
+</html>
