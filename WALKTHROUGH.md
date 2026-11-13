@@ -2,7 +2,7 @@
 
 
 
-# functions
+# functions (stale)
 
 ## misc
 `push: { a: .002 }` = add 0.002 to arousal every tick
@@ -93,7 +93,7 @@
 
 
 
-# variables
+# variables (...stale..?)
 
 ## ST
 state/behaviour table.
@@ -120,18 +120,16 @@ foraging: {
 | REM | 0 (neutral) | **Slow** (~30–50% of wake rate) | Slightly elevated | Low (nearly stable) |
 | NREM (SWS) | 0 (neutral) | **Intermediate** (~60–80% of wake rate) | Low (~0.05–0.1) | Moderate (pulls arousal down) |
 
-- `surroundAgeRate` CANNOT stay a `ST` thing. it needs to be archetype-specific. the rest will be handled by the eventual speed variable.
 - energy meter. (same category as sleep debt - meters that arent directly bodily, but very much affect stuff).
 - remove hunger from behaviour definitions.
 - metabolism rate. affected by speed, heat, health, ...? should have a number it doesnt go under.
 - Catabolism rate. higher catabolism = higher energy bar filling + higher hunger bar emptying. affected by stress, behaviour... should have a number it never goes under.
 - speed meter. affected by behaviour, temperament, health, ...?. higher speed = objects spawn more + metabolism rate goes up. is closer to "behaviour" than to "hunger", categorically.
-- rename `K.deprivedBurn` to `K.sleepDeprivedBurn`
-- rewrite the comments around malaise to be clearer
 - The code only does instrumental ("I chose to approach this, and it felt X"), never Pavlovian ("this was present when X happened to me"). FIX  THAT
-- remove sunlight checkbox and all related to it
-- add seasonal/diurnal tuning. when sun rises and disappears should be sliders, as well as temperature.
-- split chooseBehaviourAndRandomEvents(s, m, ea) into chooseBehaviour (wrapper for decide()) thatd be gated from sleeping agents from tick() directly (???) and chooseRandomEvents()
+- continue messing with the event rates section. theres already a custom-event button builder, if we added group name food water and hp we could just reause it and itd even look better than the gross little popup
+- make the event rates actually be affected by things. (behaviour for now - later location if that gets un-parked)
+- remove "no spikes queued click + to add one" from the custom events button section. replace with like. "no custom events created"
+- decide if baseline going out of bounds is a bug or a feature.
 
 
 
@@ -142,7 +140,8 @@ foraging: {
 Long-term set point (weeks/months)
     ↑ nudged by sustained affect + major events
     ↓ pulls adaptation level
-- save custom events
+- add seasonal/diurnal tuning. when sun rises and disappears should be sliders, as well as temperature.
+- add a section (similar to sleep) for "hurt" and maybe "feed" and "water". this will be a kind of "artificial magic messing with the agent" section i think.
 
 ## temperament implementation
 
@@ -215,6 +214,25 @@ Avoidant agent encounters novel stimulus
   → Now the agent is *more* reactive to novelty (baseline is higher)
   → Positive feedback loop → anxiety-like trajectory   
 ```
+
+
+
+
+# parked
+
+- environment
+Noted for later — the seed is: a biome or location concept where each archetype lists which biomes it appears in, the agent has a current biome (or x/y position on a biome map), and spawns are rate = biomeSpawnRate[archetype] instead of stateSpawnRate[archetype]. States like fleeing could shift the agent's biome (running blindly into deeper woods), which gives you the cascade effect without the causal inversion.
+
+
+---
+
+# changelog (kept here so i dont lose it)
+1.1
+- got rid of a clamping issue that broke learning
+- you can now tweak spawn rate of each object (depending on behaviour) (flee/approach ARE behaviours but hidden in UI because tbh i will be getting rid of those anyways)
+- you can now tweak rate of random events. theyre currently not dependant on anything at all which just isnt good lol
+- got rid of the huge button wall of random events. you can still trigger them manually from the same section where you tweak their rates. for now you cant see their values - thatll get fixed lated.
+- broke up malaise into small self-documenting variables (got rid of the "general malaise" slider too) - now got unwellValance, unwellLethargy, unwellDominance, sleepDebtAnhedonia instead.
 
 
 ---

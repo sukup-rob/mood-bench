@@ -405,6 +405,65 @@
       margin-top: 6px
     }
 
+    /* per-archetype spawn-rate config (inline, toggled by the gear button in each bestiary item) */
+    .archCfg {
+      padding: 0 4px;
+      font-size: 14px;
+      line-height: 1;
+      vertical-align: middle;
+      cursor: pointer;
+    }
+    .bestCfg {
+      margin-top: 4px;
+    }
+    .bestCfg table {
+      border-collapse: collapse;
+      font-size: 11px;
+      width: 100%;
+    }
+    .bestCfg td {
+      padding: 1px 2px;
+      white-space: nowrap;
+    }
+    .bestCfg td:first-child {
+      text-align: right;
+      opacity: .6;
+      width: 1%;
+    }
+    .bestCfg input[type=number] {
+      width: 64px;
+      padding: 0 1px;
+      font-size: 11px;
+      text-align: right;
+    }
+
+    /* random-event chances (compact table, mirrors .bestCfg styling) */
+    #randomCfg table {
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    #randomCfg td {
+      padding: 1px 2px;
+      white-space: nowrap;
+    }
+    #randomCfg td:first-child {
+      text-align: right;
+      opacity: .6;
+      width: 1%;
+    }
+    #randomCfg input[type=number] {
+      width: 64px;
+      padding: 0 1px;
+      font-size: 11px;
+      text-align: right;
+    }
+    #randomCfg .randTrigger {
+      padding: 0 4px;
+      font-size: 11px;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+
     .bestCat {
       font-size: .8em;
       font-weight: 600;
@@ -592,8 +651,12 @@
     </fieldset>
     <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button
         id="randomEvent" data-t="rand"></button></p>
-    <p><button id="openCustEventEditor" data-t="custEventAdd"></button></p>
-    <div id="events"></div>
+      <p><button id="openCustEventEditor" data-t="custEventAdd"></button></p>
+      <details>
+        <summary data-t="randCfg"></summary>
+        <div id="randomCfg"></div>
+      </details>
+      <div id="events"></div>
   </details>
 
   <details>
@@ -661,7 +724,7 @@
                                         saveCustomEvents, run, circOn, clock, customQueue)
        11. Surrounding objects        (nextObjectId, SURR_FEATURES, SURR_COLOR_HEX, SURR_SIZE_PX,
                                         ARCHETYPES, objectSvg,
-                                        randomFeatures, SPAWN_RATES,
+                                        randomFeatures,
                                         spawnObject, stepSurrounding, renderSurrounding)
        12. Memory & learning          (memory, featureKey, INNATE_MEMORY, seedMemory, eyes,
                                         learnFromEvent, renderBestiary, buildArchForm,
@@ -677,7 +740,7 @@
                b. Needs      (applyNeeds, applyHealth)
                c. World      (deriveWorld, stepWorld)
                d. Sleep      (stepBodyClock, stepSleepPressure, stepSleepWake)
-               e. Behaviour  (chooseBehaviourAndRandomEvents, record)
+               e. Behaviour  (chooseBehaviour, chooseRandomEvents, record)
        14. Drawing                    (COL, GC, SER, SHOW, BASE_KEY, STRETCH, INK, fit,
                                         drawTimeline, drawMoodPlane, gauge, lastLogKey, readout)
        15. Main loop                  (last, frame)
@@ -695,9 +758,9 @@
     
        Architecture (layered):
        - Layer 1: Body feelings (innate, interoceptive) — hunger, cold, sleep debt, pain, eating
-       - Layer 2: Malaise effects (shared) — anhedonia, blunted phasic, low reactive dominance
-       - Layer 3: Per-state tonic arousal — sleep debt -> hyperarousal, sickness -> lethargy
-       - Surrounding objects — spawn, despawn, features, TTL
+       - Layer 2: Per-source unwell baseline shift (shared, in moveBaseline()) — K.unwellValence / K.unwellLethargy / K.unwellDominance pull baseline VAD down with sleep debt, sickness, and low HP (negative shift + lethargy + low reactive dominance)
+       - Layer 3: Asymmetric anhedonia damper (sleep-debt only, in fireEvents()/previewPulse()) — K.sleepDebtAnhedonia shrinks only positive-valence pulses (scaled by s.dep); negative pulses pass unscaled. Physiological hyperarousal is NOT a tonic-arousal target here — it surfaces only as this asymmetric damper.
+       - Surrounding objects — per-archetype spawn rates, despawn, features, TTL
        - Memory & learning — Rescorla-Wagner, feature → expected valence
     ═════════════════════════════════════════════════════════════════ */
 
@@ -727,6 +790,11 @@
         memh: 'Memory', memEmpty: 'No memories yet.',
         besth: 'Object types',
         archName: 'name', archAdd: 'Add type', archCreate: 'Create',
+        spawnh: 'Spawn rates', ageh: 'Despawn', spawnTip: 'Spawn rates (encounters per sim-hour) and despawn rate for this archetype. Edit live — changes apply immediately.',
+        spawnCellTip: 'Encounters per sim-hour while in this state. 0 = never spawns. (1 sim-hour = 20 ticks.)',
+        ageCellTip: 'Despawn rate: how fast this object ages per tick. 1 = normal. Higher = vanishes faster. Flee/approach overrides still apply on top.',
+        randCfg: 'Random event rates', randChanceTip: 'Chance per sim-hour for this event to fire (0 = never). The global rate slider multiplies all of these. (1 sim-hour = 20 ticks.)',
+        randTriggerTip: 'Fire this event now (bypasses the chance roll and the when-gate).',
         archSize: 'Size', archColor: 'Color', archShape: 'Shape', archUT: 'Outcome',
         custEventh: 'Save custom event', custEventAdd: 'Add event', custEventCreate: 'Create', custEventDesc: 'Build a repeatable event button. The v/a/d impacts shape the default pulses (via SHAPE); HP / food / water are optional side effects. Saved events appear in the "Custom events" group below the regular buttons and persist across page reloads.',
         custEventName: 'name', custEventGroup: 'group', custEventV: 'valence', custEventA: 'arousal', custEventD: 'dominance', custEventHP: 'hp', custEventFood: 'food', custEventWater: 'water',
@@ -770,8 +838,8 @@
           {
             topic: 'Affect structure (VAD)',
             cite: 'Bračić, A. (2024). Affective dominance in non-human animals: re-integrating dominance into animal affect research. Synthese, 203(4).',
-            desc: 'Argues for re-integrating dominance into animal affect research, defining it as the organism\'s self-assessed behavioural control — i.e. how capable it perceives itself of obtaining rewards or overcoming punishments. Draws on Bryant\'s primary/secondary control framework from the human self-control literature and extends Mendl\'s valence–arousal space into a full VAD model for animals. The simulation\'s reactive-dominance and tonic-dominance mechanisms (posDomDamp, malaiseDominanceDrop) are motivated by this re-integration.',
-            where: 'See: the malaise-effects group in P (especially posDomDamp and malaiseDominanceDrop) and the reactive-dominance scaling in fireEvents() and previewPulse().'
+            desc: 'Argues for re-integrating dominance into animal affect research, defining it as the organism\'s self-assessed behavioural control — i.e. how capable it perceives itself of obtaining rewards or overcoming punishments. Draws on Bryant\'s primary/secondary control framework from the human self-control literature and extends Mendl\'s valence–arousal space into a full VAD model for animals. The simulation\'s tonic-dominance mechanism — the per-source baseline dominance drop K.unwellDominance in moveBaseline() — is motivated by this re-integration.',
+            where: 'See: K.unwellDominance in the K block and the per-source unwell push in moveBaseline() (baseline dominance falls with sleep debt, sickness, and low HP).'
           },
           // -- Learning & memory --
           {
@@ -787,24 +855,24 @@
             desc: 'The sleep model is the classic two-process model: Process S (homeostatic sleep pressure, rises while awake, decays while asleep, both exponential) and Process C (circadian body clock, modulates the sleep / wake thresholds and the displayed arousal). The code’s “two-process sleep model” phrasing refers to this paper.',
             where: 'See: stepSleepPressure() for Process S, stepBodyClock() for Process C, and stepSleepWake() for how they jointly decide sleep onset and waking.'
           },
-          // -- Sleep loss & affect (the malaise effects) --
+          // -- Sleep loss & affect --
           {
             topic: 'Sleep loss & affect',
             cite: 'Stenson, A. R., Kurinec, C. A., et al. (2021). Total sleep deprivation reduces top-down regulation of emotion without altering bottom-up affective processing. PLOS ONE, 16(9), e0256983.',
-            desc: 'Sleep deprivation impairs top-down emotional regulation (the "reactive dominance" side of the model) while leaving bottom-up affective reactivity intact. Motivates the malaise-driven posDomDamp parameter (positive dominance gains are flattened when unwell) and the malaiseDominanceDrop tonic target — both capture reduced perceived control during sleep debt.',
-            where: 'See: posDomDamp and malaiseDominanceDrop in the malaise-effects group; the same dampers apply to real events in fireEvents() and to previews in previewPulse().'
+            desc: 'Sleep deprivation impairs top-down emotional regulation (the "reactive dominance" side of the model) while leaving bottom-up affective reactivity intact. Motivates the tonic dominance drop captured by K.unwellDominance — baseline dominance falls with sleep debt (and sickness / low HP), modelling the reduced perceived control during sleep loss. (The model no longer applies a separate reactive-dominance damper to individual positive-dominance pulses.)',
+            where: 'See: K.unwellDominance in the K block and the per-source unwell push in moveBaseline(); the same sleep-debt term also drives the asymmetric anhedonia damper K.sleepDebtAnhedonia in fireEvents() and previewPulse().'
           },
           {
             topic: 'Sleep loss & affect',
             cite: 'Palmer, C. A., Bower, J. L., Cho, K. W., Clementi, M. A., Lau, S., Oosterhoff, B., & Alfano, C. A. (2023). Sleep loss and emotion: A systematic review and meta-analysis of over 50 years of experimental research. Psychological Bulletin, 150(4), 440-463.',
-            desc: 'Meta-analysis of 50+ years of experimental work. Confirms four robust patterns the simulation reproduces via the malaise-effects group: positive-valence attenuation (anhedonia → posValenceSuppress), narrowed phasic arousal range (→ phasicBlunt), reduced tonic VAD arousal (→ malaiseTonicLethargy — NOT physiological hyperarousal, which is routed elsewhere via anhedonia + reactive dominance dampers), and overall mood worsens with sleep loss (→ malaiseValenceDrop for the direct push, plus the depfactor mechanic for low-valence-triggered shrink of baseline arousal and dominance).',
-            where: 'See: posValenceSuppress, phasicBlunt, malaiseTonicLethargy, and malaiseValenceDrop in the malaise-effects group; the depfactor mechanic in moveBaseline().'
+            desc: 'Meta-analysis of 50+ years of experimental work. Confirms four robust patterns; the simulation reproduces three of them via the per-source unwell pushes and the asymmetric anhedonia damper: positive-valence attenuation (anhedonia → K.sleepDebtAnhedonia, applied only to positive valence pulses in fireEvents/previewPulse), reduced tonic VAD arousal (→ K.unwellLethargy in moveBaseline — NOT physiological hyperarousal, which is routed elsewhere as the asymmetric anhedonia damper), and overall mood worsens with sleep loss (→ K.unwellValence for the direct valence push, plus the depfactor mechanic for low-valence-triggered shrink of baseline arousal and dominance). The fourth pattern Palmer reports, a narrowed phasic arousal range, is not separately parameterised in the current model.',
+            where: 'See: K.sleepDebtAnhedonia in the K block (consumed in fireEvents() and previewPulse()); K.unwellValence, K.unwellLethargy, K.unwellDominance and the depfactor mechanic in moveBaseline().'
           },
           {
             topic: 'Sleep loss & affect',
             cite: 'Motomura, Y., Kitamura, S., Oba, K., Terasawa, Y., Enomoto, M., Katayose, Y., et al. (2013). Sleep debt elicits negative emotional reaction through diminished amygdala-anterior cingulate functional connectivity. PLOS ONE, 8(2), e56578.',
-            desc: 'Sleep debt produces stronger negative emotional reactions via reduced amygdala–anterior cingulate functional connectivity — i.e. less top-down modulation of the amygdala. Underpins the asymmetric pattern where positive affect is blunted but negative affect is preserved (or amplified) during sleep loss, which is reproduced as the (1 − posValenceSuppress × malaise) factor applied only to positive valence pulses, never to negative ones.',
-            where: 'See: the asymmetric valence damper in fireEvents() — only amp > 0 gets the (1 − posValenceSuppress × malaise) factor; negative pulses pass through unscaled.'
+            desc: 'Sleep debt produces stronger negative emotional reactions via reduced amygdala–anterior cingulate functional connectivity — i.e. less top-down modulation of the amygdala. Underpins the asymmetric pattern where positive affect is blunted but negative affect is preserved (or amplified) during sleep loss, which is reproduced as the (1 − K.sleepDebtAnhedonia × s.dep) factor applied only to positive valence pulses, never to negative ones.',
+            where: 'See: the asymmetric valence damper in fireEvents() (mirrored in previewPulse()) — only amp > 0 pulses get the (1 − K.sleepDebtAnhedonia × s.dep) factor; negative pulses pass through unscaled.'
           },
           // -- Temperament --
           {
@@ -816,8 +884,7 @@
         ],
         circ: 'Arousal follows the body clock', circTip: 'off removes only the arousal offset; the clock still gates sleep',
         clock: 'Run the clock', clockTip: '1 sim hour ≈ {s} s',
-        sun: 'Sunlight', sunTip: 'off = constant dark, the body clock free-runs',
-        light: 'Light', dark: 'dark', bright: 'bright', rest: 'rested', tired: 'tired', debt: 'Sleep debt', malaiseLabel: 'malaise', tempg: 'Temperature', cold: 'cold', hot: 'hot',
+        light: 'Light', dark: 'dark', bright: 'bright', rest: 'rested', tired: 'tired', debt: 'Sleep debt', tempg: 'Temperature', cold: 'cold', hot: 'hot',
         cv: 'Valence impact', ca: 'Arousal impact', cd: 'Dominance impact',
         neutral: 'Neutral', q: ['Excitement', 'Calm', 'Sadness', 'Anxiety'],
         pos: 'positive', neg: 'negative', hi: 'high arousal', lo: 'low arousal',
@@ -831,7 +898,7 @@
         eg: { threat: 'Threats', food: 'Food / energy', social: 'Social', env: 'Environment / novelty', body: 'Body', sleep: 'Sleep', neutral: 'Neutral' },
         ev: { rustle: 'Rustle in the grass', fell_asleep: 'Falling asleep', woke_up: 'Natural waking', sleep_interrupted: 'Sleep interrupted', ate_food: 'Feed', pain: 'Hurt', recovery: 'Heal', illness_onset: 'Sicken', drank_water: 'Drink', grooming_contact: 'Groom', loud_noise: 'Startle' },
         gm: 'Mood dynamics', gn: 'Needs', gs: 'Sleep', gw: 'Environment',
-        gh: 'Health', gb: 'Behaviour', gmf: 'Malaise effects', gl: 'Learning', gpv: 'Preview pulses',
+        gh: 'Health', gb: 'Behaviour', gl: 'Learning', gpv: 'Preview pulses',
         p: {
           decay: 'Decay rate', plen: 'Event length ×', drift: 'Baseline drift rate', pers: 'Valence sensitivity', thr: 'Depletion threshold', depfactor: 'Depletion factor',
           hrate: 'Hunger loss rate', wrate: 'Hydration loss rate', hmood: 'Hunger and thirst pull on mood', foodQuality: 'Food quality',
@@ -839,7 +906,6 @@
           speed: 'Sim speed', hour: 'Hour of day', amp: 'Circadian arousal strength', tau: 'Free-running period (h)', ent: 'Light entrainment', rate: 'Random event rate ×',
           sleepHeal: 'Sleep heal rate', sickSleepHeal: 'Sick-sleep heal rate', illDrain: 'Illness drain rate',
           sticky: 'Behaviour stickiness', decideevery: 'Decision interval (ticks)', learnRate: 'Learning rate (\u03b1)',
-          malaiseOffset: 'Direct malaise offset', posValenceSuppress: 'Anhedonia (positive valence suppress)', phasicBlunt: 'Phasic blunting', posDomDamp: 'Reactive dominance damp', malaiseDominanceDrop: 'Tonic dominance drop', malaiseRepairDamp: 'Sleep repair damper', malaiseTonicLethargy: 'Tonic VAD arousal drop', malaiseValenceDrop: 'Tonic valence drop', tonicRate: 'Tonic rate',
           previewGain: 'Preview amplitude ×', previewConfFloor: 'Preview confidence floor', previewValFloor: 'Preview |valence| floor'
         },
         pd: {
@@ -873,15 +939,6 @@
           illDrain: 'Health lost per tick while sick. Combined with sleepHeal and sickSleepHeal, decides whether the agent recovers or slowly declines.',
           sticky: 'How strongly the current behaviour resists switching. The current state’s want is multiplied by this in the lottery. Higher = stable behaviour, lower = more jittery.',
           decideevery: 'Ticks between awake-behaviour decisions (the lottery runs every N ticks, or immediately when a predator appears and the agent is not fleeing). Lower = more reactive, higher = more deliberate.',
-          malaiseOffset: 'Adds a constant malaise boost on top of the computed value (from sleep debt + sickness + low health). Lets you simulate "the agent is generally unwell" without needing to trigger sources. At 0, normal behavior; at 1, full malaise regardless of sources.',
-          posValenceSuppress: 'At full malaise, positive valence pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. This is the "anhedonia" effect — positive events feel less good when unwell.',
-          phasicBlunt: 'At full malaise, all arousal pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. Narrows the phasic range — events produce smaller arousal spikes.',
-          posDomDamp: 'At full malaise, positive dominance pulses shrink to (1 - this) of their normal amp. Default 0.4 = 60% remaining. Compounds with the existing domScale (situational, halving dominance gains when valence ≤ 0).',
-          malaiseDominanceDrop: 'At full malaise, tonic dominance target drops to -this value. Default 0.4 = target -0.4. Shared across all unwell sources — produces the "low reactive dominance" pattern.',
-          malaiseRepairDamp: 'At full malaise, sleep self-repair is multiplied by (1 - this value). Default 0.5 = halved repair. So sickness and low-HP also make sleep less restorative, not just sleep debt.',
-          malaiseTonicLethargy: 'At full malaise, tonic VAD arousal target = -this value. Default 0.3 = target -0.3 (lethargy). Shared across all unwell sources (sleep debt + sickness + low HP). NOTE: this is the VAD arousal dimension (subjective emotional activation, as in Palmer 2023 and Mendl 2010) — NOT physiological hyperarousal (cortisol, sympathetic tone), which is real during sleep debt but is routed through asymmetric anhedonia (posValenceSuppress, Motomura 2013) and reactive dominance dampers (posDomDamp + malaiseDominanceDrop, Stenson 2021) instead. Conflating the two was a construct-validity error in earlier versions.',
-          malaiseValenceDrop: 'At full malaise, tonic valence target = -this value. Default 0.2 = target -0.2. Direct, symmetric push on baseline valence ("shifts negative"). Distinct from posValenceSuppress, which is the asymmetric pulse-side damper (only positive pulses shrink). Together they produce the table pattern "shifts negative; positive end attenuated" — the valence drop is symmetric, the anhedonia is asymmetric. Shared across all unwell sources.',
-          tonicRate: 'Slow pull of baseline toward the tonic target, per tick. Default 0.005 = ~1 minute real time to manifest at speed 1. Higher = faster (more phasic), lower = slower (more tonic).',
           learnRate: 'How fast memory updates toward the actual outcome. Higher = each encounter shifts the expectation more. Default 0.3 = ~4 encounters to reach 80%.',
           previewGain: 'Overall amplitude multiplier on anticipation pulses. When attention locks onto an object, the mood shifts based on the expected outcome from memory — same multi-pulse shape as the matching US event (spike + tail per dimension), at ~30% of its amplitude. Default 1 = strong-but-subtle anticipation; 0 = previews off.',
           previewConfFloor: 'Memory confidence below this → no preview fires. Low-confidence expectations are not felt yet (curiosity / neophobia still drive the decision to investigate). Default 0.15 = below innate pre-seed conf of 0.3 is required to feel anything.',
@@ -900,6 +957,11 @@
         memh: 'Paměť', memEmpty: 'Zatím žádné vzpomínky.',
         besth: 'Typy objektů',
         archName: 'název', archAdd: 'Přidat typ', archCreate: 'Vytvořit',
+        spawnh: 'Míry výskytu', ageh: 'Mizení', spawnTip: 'Míry výskytu (výskyty za sim-hodinu) a rychlost mizení pro tento archetyp. Upravujte živě — změny se aplikují okamžitě.',
+        spawnCellTip: 'Výskyty za sim-hodinu v tomto stavu. 0 = nikdy se neobjeví. (1 sim-hodina = 20 ticků.)',
+        ageCellTip: 'Rychlost mizení: jak rychle objekt stárne za tick. 1 = normální. Vyšší = mizí rychleji. Přepisy pro útěk/přiblížení se stále aplikují navíc.',
+        randCfg: 'Míry náhodných událostí', randChanceTip: 'Šance za sim-hodinu na spuštění této události (0 = nikdy). Globální jezdec „rate" všechny násobí. (1 sim-hodina = 20 ticků.)',
+        randTriggerTip: 'Spustit tuto událost nyní (ignoruje náhodu i podmínku when).',
         archSize: 'Velikost', archColor: 'Barva', archShape: 'Tvar', archUT: 'Výsledek',
         custEventh: 'Uložit vlastní událost', custEventAdd: 'Přidat událost', custEventCreate: 'Vytvořit', custEventDesc: 'Vytvoř opakovatelné tlačítko události. Dopady na v/a/d tvoří výchozí pulzy (přes SHAPE); HP / potrava / voda jsou volitelné vedlejší efekty. Uložené události se objeví ve skupině „Vlastní události" pod běžnými tlačítky a přetrvají přes obnovení stránky.',
         custEventName: 'název', custEventGroup: 'skupina', custEventV: 'valence', custEventA: 'aktivace', custEventD: 'dominance', custEventHP: 'hp', custEventFood: 'potrava', custEventWater: 'voda',
@@ -943,8 +1005,8 @@
           {
             topic: 'Struktura afektu (VAD)',
             cite: 'Bračić, A. (2024). Affective dominance in non-human animals: re-integrating dominance into animal affect research. Synthese, 203(4).',
-            desc: 'Argumentuje pro re-integraci dominance do výzkumu zvířecího afektu a definuje ji jako sebevyhodnocenou behaviorální kontrolu organismu — tedy jak schopné se cítí získávat odměny nebo překonávat tresty. Vychází z Bryantova rámce primární/sekundární kontroly z literatury lidské sebekontroly a rozšiřuje Mendlův prostor valence–aktivace na úplný VAD model pro zvířata. Reaktivně-dominantní a tonicky-dominantní mechanismy simulace (posDomDamp, malaiseDominanceDrop) motivuje právě tato re-integrace.',
-            where: 'Viz: skupina malaise-efektů v P (zejména posDomDamp a malaiseDominanceDrop) a škálování reaktivní dominance ve fireEvents() a previewPulse().'
+            desc: 'Argumentuje pro re-integraci dominance do výzkumu zvířecího afektu a definuje ji jako sebevyhodnocenou behaviorální kontrolu organismu — tedy jak schopné se cítí získávat odměny nebo překonávat tresty. Vychází z Bryantova rámce primární/sekundární kontroly z literatury lidské sebekontroly a rozšiřuje Mendlův prostor valence–aktivace na úplný VAD model pro zvířata. Tonicky-dominantní mechanismus simulace — přímý pokles baseline dominance K.unwellDominance v moveBaseline() — motivuje právě tato re-integrace.',
+            where: 'Viz: K.unwellDominance v bloku K a přímý posun baseline dominance v moveBaseline() (baseline dominance klesá se spánkovým dluhem, nemocí a nízkým HP).'
           },
           // -- Učení a paměť --
           {
@@ -960,24 +1022,24 @@
             desc: 'Model spánku je klasický dvouprocesový model: Process S (homeostatický spánkový tlak, roste během bdění, klesá během spánku, oboje exponenciální) a Process C (cirkadiánní biologické hodiny, modulují prahy spánku / bdění a zobrazovanou aktivaci). Formulace „dvouprocesový model spánku“ v kódu odkazuje na tento článek.',
             where: 'Viz: stepSleepPressure() pro Process S, stepBodyClock() pro Process C a stepSleepWake() pro to, jak společně rozhodují o usínání a probuzení.'
           },
-          // -- Ztráta spánku a afekt (malaise efekty) --
+          // -- Ztráta spánku a afekt --
           {
             topic: 'Ztráta spánku a afekt',
             cite: 'Stenson, A. R., Kurinec, C. A., et al. (2021). Total sleep deprivation reduces top-down regulation of emotion without altering bottom-up affective processing. PLOS ONE, 16(9), e0256983.',
-            desc: 'Spánková deprivace narušuje top-down emoční regulaci (strana „reaktivní dominance“ modelu), zatímco bottom-up afektivní reaktivita zůstává nedotčena. Motivuje malaise-řízený parametr posDomDamp (pozitivní zisky dominance se při nevolnosti zplošťují) a tonický cíl malaiseDominanceDrop — oba zachycují snížené vnímané sebeřízení během spánkového dluhu.',
-            where: 'Viz: posDomDamp a malaiseDominanceDrop ve skupině malaise-efektů; stejné tlumiče se aplikují na skutečné události ve fireEvents() a na předstihy v previewPulse().'
+            desc: 'Spánková deprivace narušuje top-down emoční regulaci (strana „reaktivní dominance“ modelu), zatímco bottom-up afektivní reaktivita zůstává nedotčena. Motivuje tonický pokles dominance zachycený konstantou K.unwellDominance — baseline dominance klesá se spánkovým dluhem (a nemocí / nízkým HP), což modeluje snížené vnímané sebeřízení během ztráty spánku. (Model už neaplikuje samostatný tlumič reaktivní dominance na jednotlivé pozitivně-dominantní pulzy.)',
+            where: 'Viz: K.unwellDominance v bloku K a přímý posun baseline dominance v moveBaseline(); tentýž člen spánkového dluhu také pohání asymetrický tlumič anhedonie K.sleepDebtAnhedonia ve fireEvents() a previewPulse().'
           },
           {
             topic: 'Ztráta spánku a afekt',
             cite: 'Palmer, C. A., Bower, J. L., Cho, K. W., Clementi, M. A., Lau, S., Oosterhoff, B., & Alfano, C. A. (2023). Sleep loss and emotion: A systematic review and meta-analysis of over 50 years of experimental research. Psychological Bulletin, 150(4), 440-463.',
-            desc: 'Meta-analýza 50+ let experimentální práce. Potvrzuje čtyři robustní vzorce, které simulace reprodukuje přes skupinu malaise-efektů: potlačení pozitivní valence (anhedonie → posValenceSuppress), zúžené fázické rozpětí aktivace (→ phasicBlunt), snížená tonická VAD aktivace (→ malaiseTonicLethargy — NE fyziologický hyperarousal, který je směrován jinam přes anhedonii + tlumiče reaktivní dominance) a celkové zhoršení nálady se spánkovou ztrátou (→ malaiseValenceDrop pro přímý posun, plus mechanizmus depfactor pro smrštění baseline aktivace a dominance spouštěné nízkou valencí).',
-            where: 'Viz: posValenceSuppress, phasicBlunt, malaiseTonicLethargy a malaiseValenceDrop ve skupině malaise-efektů; mechanizmus depfactor v moveBaseline().'
+            desc: 'Meta-analýza 50+ let experimentální práce. Potvrzuje čtyři robustní vzorce; simulace reprodukuje tři z nich přes přímé posuny baseline a asymetrický tlumič anhedonie: potlačení pozitivní valence (anhedonie → K.sleepDebtAnhedonia, aplikováno pouze na pozitivní pulzy valence ve fireEvents/previewPulse), snížená tonická VAD aktivace (→ K.unwellLethargy v moveBaseline — NE fyziologický hyperarousal, který je směrován jinam jako asymetrický tlumič anhedonie) a celkové zhoršení nálady se spánkovou ztrátou (→ K.unwellValence pro přímý posun valence, plus mechanizmus depfactor pro smrštění baseline aktivace a dominance spouštěné nízkou valencí). Čtvrtý vzorec, který Palmer uvádí — zúžené fázické rozpětí aktivace — není v současném modelu samostatně parametrizováno.',
+            where: 'Viz: K.sleepDebtAnhedonia v bloku K (spotřebováno ve fireEvents() a previewPulse()); K.unwellValence, K.unwellLethargy, K.unwellDominance a mechanizmus depfactor v moveBaseline().'
           },
           {
             topic: 'Ztráta spánku a afekt',
             cite: 'Motomura, Y., Kitamura, S., Oba, K., Terasawa, Y., Enomoto, M., Katayose, Y., et al. (2013). Sleep debt elicits negative emotional reaction through diminished amygdala-anterior cingulate functional connectivity. PLOS ONE, 8(2), e56578.',
-            desc: 'Spánkový dluh produkuje silnější negativní emoční reakce přes sníženou funkční konektivitu amygdala–přední cingulum — tedy méně top-down modulace amygdaly. Podrývá asymetrický vzorec, kdy pozitivní afekt je během spánkové ztráty tlumen, ale negativní zůstává zachován (nebo zesílen), což je reprodukováno jako faktor (1 − posValenceSuppress × malaise) aplikovaný pouze na pozitivní pulzy valence, nikdy na záporné.',
-            where: 'Viz: asymetrický tlumič valence ve fireEvents() — pouze amp > 0 dostává faktor (1 − posValenceSuppress × malaise); záporné pulzy procházejí bez změny.'
+            desc: 'Spánkový dluh produkuje silnější negativní emoční reakce přes sníženou funkční konektivitu amygdala–přední cingulum — tedy méně top-down modulace amygdaly. Podrývá asymetrický vzorec, kdy pozitivní afekt je během spánkové ztráty tlumen, ale negativní zůstává zachován (nebo zesílen), což je reprodukováno jako faktor (1 − K.sleepDebtAnhedonia × s.dep) aplikovaný pouze na pozitivní pulzy valence, nikdy na záporné.',
+            where: 'Viz: asymetrický tlumič valence ve fireEvents() (zrcadlený v previewPulse()) — pouze pulzy amp > 0 dostávají faktor (1 − K.sleepDebtAnhedonia × s.dep); záporné pulzy procházejí bez změny.'
           },
           // -- Temperament --
           {
@@ -989,8 +1051,7 @@
         ],
         circ: 'Aktivace sleduje tělesné hodiny', circTip: 'vypnutí odstraní jen posun aktivace; hodiny dál řídí spánek',
         clock: 'Pustit hodiny', clockTip: '1 simulovaná hodina ≈ {s} s',
-        sun: 'Sluneční světlo', sunTip: 'vypnuto = trvalá tma, tělesné hodiny běží volně',
-        light: 'Světlo', dark: 'tma', bright: 'jasno', rest: 'odpočatý', tired: 'unavený', debt: 'Spánkový dluh', malaiseLabel: 'malaise', tempg: 'Teplota', cold: 'chlad', hot: 'horko',
+        light: 'Světlo', dark: 'tma', bright: 'jasno', rest: 'odpočatý', tired: 'unavený', debt: 'Spánkový dluh', tempg: 'Teplota', cold: 'chlad', hot: 'horko',
         cv: 'Dopad na valenci', ca: 'Dopad na aktivaci', cd: 'Dopad na dominanci',
         neutral: 'Neutrální stav', q: ['Nadšení', 'Klid', 'Smutek', 'Úzkost'],
         pos: 'kladná', neg: 'záporná', hi: 'vysoká aktivace', lo: 'nízká aktivace',
@@ -1011,7 +1072,7 @@
           fell_asleep: 'Usínání', woke_up: 'Přirozené probuzení', sleep_interrupted: 'Přerušení spánku'
         },
         gm: 'Dynamika nálady', gn: 'Potřeby', gs: 'Spánek', gw: 'Prostředí',
-        gh: 'Zdraví', gb: 'Chování', gmf: 'Malaise efekty', gl: 'Učení', gpv: 'Předstihové pulzy',
+        gh: 'Zdraví', gb: 'Chování', gl: 'Učení', gpv: 'Předstihové pulzy',
         p: {
           decay: 'Rychlost doznívání', plen: 'Délka dopadu události ×', drift: 'Rychlost posunu základu', pers: 'Citlivost valence', thr: 'Práh vyčerpání', depfactor: 'Faktor vyčerpání',
           hrate: 'Ubývání sytosti', wrate: 'Ubývání hydratace', hmood: 'Vliv hladu a žízně na náladu', foodQuality: 'Kvalita potravy',
@@ -1019,7 +1080,6 @@
           speed: 'Rychlost simulace', hour: 'Hodina dne', amp: 'Síla denního rytmu aktivace', tau: 'Volně běžící perioda (h)', ent: 'Synchronizace světlem', rate: 'Četnost náhodných událostí ×',
           sleepHeal: 'Hojení spánkem', sickSleepHeal: 'Hojení spánkem při nemoci', illDrain: 'Úbytek při nemoci',
           sticky: 'Lepkavost chování', decideevery: 'Interval rozhodování (ticků)', learnRate: 'Rychlost učení (\u03b1)',
-          malaiseOffset: 'Přímé posunutí malaise', posValenceSuppress: 'Anhedonie (potlačení poz. valence)', phasicBlunt: 'Tlumení fázické', posDomDamp: 'Tlumení reaktivní dominance', malaiseDominanceDrop: 'Tonický pokles dominance', malaiseRepairDamp: 'Tlumení hojení spánkem', malaiseTonicLethargy: 'Tonický pokles VAD aktivace', malaiseValenceDrop: 'Tonický pokles valence', tonicRate: 'Rychlost toniku',
           previewGain: 'Amplituda předstihu ×', previewConfFloor: 'Práh spolehlivosti předstihu', previewValFloor: 'Práh |valence| předstihu'
         },
         pd: {
@@ -1053,15 +1113,6 @@
           illDrain: 'Zdraví ztracené za tick při nemoci. Spolu se sleepHeal a sickSleepHeal rozhoduje, zda se agent uzdravuje nebo pomalu upadá.',
           sticky: 'Jak silně aktuální chování odolává změně. Want aktuálního stavu je v loterii násobeno tímto. Vyšší = stabilní chování, nižší = více nervózní.',
           decideevery: 'Ticků mezi rozhodnutími o chování (loterie běží každých N ticků, nebo ihned při predátorovi, kdy agent neprchá). Nižší = více reaktivní, vyšší = více zvažující.',
-          malaiseOffset: 'Přidává konstantní přírůstek malaise nad vypočítanou hodnotu (ze spánkového dluhu + nemoci + nízkého zdraví). Umožňuje simulovat „agent je celkově nemožný" bez spouštění zdrojů. Při 0 normální chování; při 1 plná malaise bez ohledu na zdroje.',
-          posValenceSuppress: 'Při plné malaise se pozitivní valenční pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. To je „anhedonie" — pozitivní události se při nemožení cítí hůře.',
-          phasicBlunt: 'Při plné malaise se všechny aktivizační pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. Zužuje fázický rozsah — události produkují menší aktivizační špičky.',
-          posDomDamp: 'Při plné malaise se pozitivní dominance pulzy zmenší na (1 - toto) normální amplitudy. Výchozí 0.4 = 60 % zbývá. Slučuje se se stávajícím domScale (situační, poloviční zisky dominance při valenci ≤ 0).',
-          malaiseDominanceDrop: 'Při plné malaise tonický cíl dominance klesne na -toto. Výchozí 0.4 = cíl -0.4. Společné pro všechny zdroje nevolnosti — vytváří vzor „nízké reaktivní dominance".',
-          malaiseRepairDamp: 'Při plné malaise se sebeoprava spánkem násobí (1 - toto). Výchozí 0.5 = poloviční oprava. Takže nemoc a nízké zdraví také dělají spánek méně regenerační, nejen spánkový dluh.',
-          malaiseTonicLethargy: 'Při plné malaise tonický cíl VAD aktivace = -toto. Výchozí 0.3 = cíl -0.3 (letargie). Společné pro všechny zdroje nevolnosti (spánkový dluh + nemoc + nízké zdraví). POZNÁMKA: tato je dimenze VAD aktivace (subjektivní emoční aktivace, viz Palmer 2023 a Mendl 2010) — NE fyziologický hyperarousal (kortisol, sympatikus), který je při spánkovém dluhu skutečně přítomen, ale je směrován přes asymetrickou anhedonii (posValenceSuppress, Motomura 2013) a tlumiče reaktivní dominance (posDomDamp + malaiseDominanceDrop, Stenson 2021). Záměna těch dvou byla chybou konstrukt-validity v dřívějších verzích.',
-          malaiseValenceDrop: 'Při plné malaise tonický cíl valence = -toto. Výchozí 0.2 = cíl -0.2. Přímý, symetrický posun základní valence („posun k záporné"). Odlišné od posValenceSuppress, což je asymetrický tlumič na straně pulzů (zmenšuje jen pozitivní pulzy). Spolu tvoří vzor z tabulky „posun k záporné; pozitivní konec potlačen" — pokles valence je symetrický, anhedonie asymetrická. Společné pro všechny zdroje nevolnosti.',
-          tonicRate: 'Pomalé přitahování baseline k tonickému cíli, za tick. Výchozí 0.005 = ~1 minuta reálného času pro manifestaci při rychlosti 1. Vyšší = rychlejší (více fázické), nižší = pomalejší (více tonické).',
           learnRate: 'Jak rychle se paměť aktualizuje směrem ke skutečnému výsledku. Vyšší = každé setkání posouvají očekávání více. Výchozí 0.3 = ~4 setkání k dosažení 80 %.',
           previewGain: 'Celkový násobitel amplitudy předstihových pulzů. Když pozornost ulpí na objektu, nálada se posune podle očekávaného výsledku z paměti — stejný více-pulzní tvar jako odpovídající US událost (špička + plyn na každé dimenzi), při ~30 % její amplitudy. Výchozí 1 = silná, ale jemná antécipe; 0 = předstihy vypnuty.',
           previewConfFloor: 'Spolehlivost v paměti pod tímto → žádný předstih se neaktivuje. Nízkospolehlivá očekávání se ještě necítí (rozhodnutí prozkoumat stále řídí zvědavost / nefobie). Výchozí 0.15 = pod úroveň vrozeného pre-seedu 0.3 je nutné k tomu, aby se něco cítilo.',
@@ -1074,8 +1125,8 @@
     let t = T[lang];      // t = text for the active language
 
     /* ============ Parameters (the sliders) ============ */
-    // CONFIG = the immutable slider defaults — what Reset restores. (Hour and sun are NOT in here:
-    // they are world state, not parameters — their defaults live in WORLD_DEFAULTS below.)
+    // CONFIG = the immutable slider defaults — what Reset restores. (Hour is NOT in here:
+    // it is world state, not a parameter — its default lives in WORLD_DEFAULTS below.)
     // A tick = one simulation step = 3 sim minutes = 0.1 s (at speed 1).
     // Sleep rates are per SIM HOUR (the pseudocode's per-minute rates would saturate in a second at this time scale).
     const CONFIG = Object.freeze({
@@ -1111,12 +1162,6 @@
       tau: 23.5,     // free-running body-clock period in hours (mice ~23.5)
       ent: .25,      // how strongly light pulls the body clock toward world time (per sim hour)
       rate: 1,       // multiplier on every random-event chance (see RANDOM)
-      // -- malaise effects --
-      malaiseOffset: 0,    // direct malaise boost — for "messing with malaise directly"; adds to the computed value (sleep dep + sickness + low HP)
-      posValenceSuppress: .4, phasicBlunt: .4, posDomDamp: .4,   // anhedonia, blunted phasic, reactive dominance (all driven by malaise)
-      malaiseDominanceDrop: .4, malaiseRepairDamp: .5,          // tonic dominance drop, sleep repair damper
-      malaiseTonicLethargy: .3, malaiseValenceDrop: .2,         // shared tonic arousal drop + baseline valence drop (both driven by malaise — all unwell sources pull VAD arousal down and valence negative; physiological hyperarousal is NOT routed here, see posValenceSuppress / posDomDamp instead)
-      tonicRate: .005,                                         // slow pull of baseline toward tonic target (~1 min real time at speed 1)
       // -- learning  --
       learnRate: .3,           // Rescorla-Wagner learning rate: how fast memory shifts toward actual outcome
       // -- preview pulses  --
@@ -1127,9 +1172,9 @@
     // P = the LIVE slider values (mutable). init() does Object.assign(P, CONFIG) on Reset so sliders return to defaults.
     const P = { ...CONFIG };
 
-    // WORLD_DEFAULTS = defaults for world state. (Hour and sun are sim state — they live in W at runtime,
-    // not in P. They have a slider / checkbox attached, so their defaults need a home; this is it.)
-    const WORLD_DEFAULTS = Object.freeze({ hour: 9, sun: true });
+    // WORLD_DEFAULTS = defaults for world state. (Hour is sim state — it lives in W at runtime,
+    // not in P. It has a slider attached, so its default needs a home; this is it.)
+    const WORLD_DEFAULTS = Object.freeze({ hour: 9 });
 
     // getParam / setParam = read / write a slider-controlled value, regardless of whether it lives in P or W.
     // (Currently only 'hour' lives in W; everything else is in P. If you add more slider-controlled world
@@ -1139,14 +1184,13 @@
       if (k === 'hour') { W.hour = v; deriveWorld(); }   // recompute light/temp so the gauge stays live while paused
       else P[k] = v;
     };
-    // SLIDERS = slider settings: [key, min, max, step, group]. Groups: 0 mood, 1 needs, 2 sleep, 3 environment, 4 health, 5 behaviour, 6 malaise effects, 7 learning, 8 preview pulses.
+    // SLIDERS = slider settings: [key, min, max, step, group]. Groups: 0 mood, 1 needs, 2 sleep, 3 environment, 4 health, 5 behaviour, 7 learning, 8 preview pulses.
     const SLIDERS = [['decay', .002, .1, .002, 0], ['plen', .25, 4, .25, 0], ['drift', 0, .02, .0005, 0], ['pers', .2, 2, .05, 0], ['thr', -.9, 0, .05, 0], ['depfactor', .98, 1, .0005, 0],
     ['hrate', .0001, .003, .0001, 1], ['wrate', .0002, .004, .0002, 1], ['hmood', 0, 3, .1, 1], ['foodQuality', 0, 1, .05, 1],
     ['sleep', -.5, 1, .05, 2], ['krise', .01, .3, .005, 2], ['kdecay', .02, .6, .01, 2], ['camp', 0, .3, .01, 2], ['amp', 0, .6, .05, 2], ['tau', 22, 26, .1, 2], ['ent', 0, 1, .05, 2], ['cycle', 20, 240, 10, 2], ['expect', 4, 12, .5, 2], ['nightlen', 4, 12, .5, 2], ['repair', 0, .03, .001, 2], ['wakeCooldown', 0, 100, 5, 2],
     ['speed', .05, 5, .05, 3], ['hour', 0, 23.95, .05, 3], ['rate', 0, 3, .1, 3],
     ['sleepHeal', 0, .02, .001, 4], ['sickSleepHeal', 0, .005, .0001, 4], ['illDrain', 0, .005, .0001, 4],
     ['sticky', 1, 10, .5, 5], ['decideevery', 1, 60, 1, 5],
-    ['malaiseOffset', 0, 1, .05, 6], ['posValenceSuppress', 0, 1, .05, 6], ['phasicBlunt', 0, 1, .05, 6], ['posDomDamp', 0, 1, .05, 6], ['malaiseDominanceDrop', 0, 1, .05, 6], ['malaiseRepairDamp', 0, 1, .05, 6], ['malaiseTonicLethargy', 0, 1, .05, 6], ['malaiseValenceDrop', 0, 1, .05, 6], ['tonicRate', 0, .02, .001, 6],
     ['learnRate', .05, 1, .05, 7],
     ['previewGain', 0, 2, .05, 8], ['previewConfFloor', 0, .5, .05, 8], ['previewValFloor', 0, .3, .05, 8]];
 
@@ -1158,12 +1202,17 @@
     const K = {
       ambValence: .8, ambArousal: .2, ambArousalBase: .3,   // ambiguous events: valence = .8 x baseline valence; arousal = .2 + .3 x baseline arousal
       domGainHalf: .5,         // dominance GAINS are multiplied by this while valence is not positive (situational: depends on current mood)
-      deprivedBurn: .5,        // hunger loss is up to 50% faster at full sleep deprivation (per-state, sleep-debt-specific)
+      sleepDeprivedBurn: .5,   // hunger loss is up to 50% faster at full sleep deprivation (per-state, sleep-debt-specific)
       thirstFromHunger: .5,    // thirst is up to 50% faster when starving
       tempIdeal: 20, tempRange: 15,                        // temperature comfort is 1 at 20 C and 0 at 15 degrees away
       coldBurn: .001, coldStress: .3, coldValence: .002,    // extra hunger per tick at zero comfort; below comfort .3, valence drops this much per tick
-      needFloor: .4, needValence: .004, needArousal: .002  // a meter below .4 starts to hurt: this much valence down and arousal up per tick at empty
-      // (malaise-driven asymmetries + tonic arousal moved to P — now user-tunable under "Malaise effects")
+      needFloor: .4, needValence: .004, needArousal: .002,  // a meter below .4 starts to hurt: this much valence down and arousal up per tick at empty
+      // per-source unwell pushes (replace the old malaise aggregator). Each source pushes baseline mood directly,
+      // like the `need` push in applyNeeds — not a pull-toward-target. unwell = s.dep + (s.ill?1:0) + (1-s.hp), range 0..3.
+      unwellValence: .003,    // baseline valence drop per tick per unit of unwellness
+      unwellLethargy: .0015,  // baseline arousal drop per tick per unit of unwellness (lethargy)
+      unwellDominance: .002,  // baseline dominance drop per tick per unit of unwellness (low reactive dominance)
+      sleepDebtAnhedonia: .4  // sleep-debt-specific: positive valence pulses shrink by up to this fraction at full sleep debt (Motomura 2013)
     };
 
     /* ============ Events ============ */
@@ -1234,7 +1283,7 @@
     //   when   = the dependencies: a function of c that must be true. c.world = the environment, everything else = the agent
     //   act    = optional: act(w, s) changes the world w or the agent s when the row triggers (the fired event's own act runs too)
     const RANDOM = [
-      // Food, water, and predators spawn as surrounding objects (SPAWN_RATES); US events fire via archetype.events on approach.
+      // Food, water, and predators spawn as surrounding objects (rates on each archetype's .spawns); US events fire via archetype.events on approach.
       // social
       { id: 'conspecific_arrives', chance: .006, when: c => c.world.conspecifics === 0 && !c.asleep, act: w => { w.conspecifics = 1; } },
       { id: 'conspecific_leaves', chance: .008, when: c => c.world.conspecifics > 0, act: w => { w.conspecifics--; } },
@@ -1282,44 +1331,36 @@
     const ST = {
       idle: {
         col: '#7a8a99', tug: { a: [-.2, .02] }, want: c => 1,
-        surroundAgeRate: 1
-      },   // idle: rare encounters (spawn rates in SPAWN_RATES)
+      },   // idle: rare encounters (spawn rates live on each archetype's .spawns)
       foraging: {
         col: '#c9772b', hunger: 1.8, push: { a: .002 },    // looks for food AND water, whichever is more urgent
         want: c => Math.max(c.h < c.sat ? (1 - c.h) * 5 : .3, c.wt < .7 ? (1 - c.wt) * 6 : .2),
-        surroundAgeRate: 1
       },   // foraging: moving around
       socialising: {
         col: '#d0488f', hunger: 1.6, push: { v: .004, a: .001 },   // (renamed from "playing") social contact with conspecifics
         can: c => c.h > .25 && c.wt > .25 && c.v > -.2, stay: c => c.h > .15, want: c => Math.min(c.h, c.wt) * 1.5,
-        surroundAgeRate: 1
       },   // socialising: some movement
       explore: {
         col: '#4a9e6f', hunger: 1.2, push: { a: .001 },                           // free-time wandering, only when fed and watered
         can: c => c.h > .4 && c.wt > .4, want: c => Math.min(c.h, c.wt) * (.5 + .5 * Math.max(0, c.a)),   // more aroused = more curious. TODO: also scale by c.temperament.exploration
-        surroundAgeRate: 1.5
-      },   // explore: slightly faster despawns (agent moves on)
+      },   // explore: free-time wandering
       nrem: {
         col: '#3f5fb0', sleep: true, impact: .5, repair: .6, tug: { v: [0, .05], d: [0, .05], a: [-.5, .02] },   // deep sleep: calm, valence and dominance fade to 0
-        surroundAgeRate: 1
-      },   // sleep: no new encounters (SPAWN_RATES.nrem is empty)
+      },   // sleep: no new encounters (archetypes have no spawns in nrem)
       rem: {
         col: '#8a5fd0', sleep: true, impact: .5, repair: 1.4, tug: { v: [.1, .04], d: [0, .05], a: [.05, .03] }   // REM: arousal drifts up a little, mood repairs the most
-        , surroundAgeRate: 1
       },
       approach_object: {
         col: '#e8a020', hunger: 1.5,   //  agent approaches a perceived object it expects to be good (or is curious / desperate enough to investigate). Uses the curiosity() helper so hunger/thirst boost curiosity and damp neophobia.
         can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return ev + cur - neo > 0; },
         stay: c => !!eyes(),
         want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return Math.max(ev + cur - neo, 0); },
-        surroundAgeRate: 1
       },
       flee_object: {
         col: '#e04040', hunger: 2.5, impact: 1.5,   //  agent flees a perceived object it expects to be bad
         can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); return m && m.valence < 0 && m.conf > 0.3; },
         stay: c => !!eyes(),
         want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); if (!m || m.valence >= 0) return 0; return Math.abs(m.valence) * m.conf; },
-        surroundAgeRate: 2
       },
     };
 
@@ -1387,14 +1428,13 @@
         { dim: 'd', amp: v * .15 * c * gain, tau: 20 },
         { dim: 'd', amp: v * .10 * c * gain, tau: 150 },
       ];
-      // Apply the same malaise dampers as fireEvents so previews flatten along with real events when unwell.
+      // Apply the same sleep-debt anhedonia as fireEvents so previews flatten along with real events when sleep-deprived.
       const feltV = clamp(s.v + pulseSum().v);          // current felt valence (for situational domScale)
       const domScale = feltV <= 0 ? K.domGainHalf : 1;
       for (const p of pulses) {
         let amp = p.amp;
-        if (p.dim === 'v') { amp *= P.pers; if (amp > 0) amp *= 1 - P.posValenceSuppress * s.malaise; }
-        if (p.dim === 'a') amp *= 1 - P.phasicBlunt * s.malaise;
-        if (p.dim === 'd' && amp > 0) amp *= domScale * (1 - P.posDomDamp * s.malaise);
+        if (p.dim === 'v') { amp *= P.pers; if (amp > 0) amp *= 1 - K.sleepDebtAnhedonia * s.dep; }
+        if (p.dim === 'd' && amp > 0) amp *= domScale;
         PULSES.push({ dim: p.dim, amp, tau: p.tau, age: 0 });
       }
     }
@@ -1419,7 +1459,7 @@
         // OVERRIDE 5: Unknown or low-confidence object + curiosity > neophobia → approach. Curiosity is boosted
         //   and neophobia is damped by desperation, so hungry/thirsty agents investigate things they'd otherwise avoid.
         if (!mem || mem.conf < 0.5) {
-          const { cur, neo } = curiosity(c, mem);                      // uses desper-modulated formula
+          const { cur, neo } = curiosity(c, mem);  
           if (cur > neo && cur > 0.3) { behaviour = 'approach_object'; return; }
         }
       } else {
@@ -1471,6 +1511,14 @@
     const loadCustomEvents = () => { try { CUSTOM_EVENTS = JSON.parse(localStorage.getItem(CUSTOM_EVENTS_KEY) || '[]'); } catch (e) { CUSTOM_EVENTS = []; } };
     const saveCustomEvents = () => { try { localStorage.setItem(CUSTOM_EVENTS_KEY, JSON.stringify(CUSTOM_EVENTS)); } catch (e) { } };
     loadCustomEvents();   // load on script init
+
+    // Random-event chances persistence — save tweaked per-tick chances to localStorage so they survive reloads.
+    // Stored as {id: per-tick-chance}. loadRandomChances applies them to RANDOM rows on init; the UI input
+    // handler calls saveRandomChances after each edit. (The global 'rate' slider is a separate multiplier on top.)
+    const RANDOM_CHANCES_KEY = 'moodbench_randomChances_v1';
+    const loadRandomChances = () => { try { const saved = JSON.parse(localStorage.getItem(RANDOM_CHANCES_KEY) || '{}'); for (const r of RANDOM) if (saved[r.id] !== undefined) r.chance = saved[r.id]; } catch (e) { } };
+    const saveRandomChances = () => { try { localStorage.setItem(RANDOM_CHANCES_KEY, JSON.stringify(Object.fromEntries(RANDOM.map(r => [r.id, r.chance])))); } catch (e) { } };
+    loadRandomChances();   // load on script init
     let run = true, circOn = true, clock = true;
     // Custom event composer state. Declared here (above init) so init() can wipe customQueue on Reset.
     // No per-dim defaults — each queued spike starts neutral (amp=0, τ=10) and is adjusted inline.
@@ -1494,36 +1542,56 @@
     const SURR_COLOR_HEX = { dark: '#222', red: '#d33', green: '#3a3', blue: '#36c', brown: '#a52' };
     const SURR_SIZE_PX = { small: 14, medium: 18, large: 22 };
     // ARCHETYPES = the catalog of named object types the world can spawn. Each entry has:
-    //   features       — {size, color, shape} perceptual identity (must be unique per archetype, since memory
-    //                    keys are derived from featureKey(features) — collisions = ambiguous learning signal)
-    //   events          — array of event keys that fire when this object is approached. Empty = neutral (no US,
-    //                    stepApproach handles inline with a curiosity bump + "this = nothing" memory update).
-    //                    Multiple = the approach picks one at random (e.g. social_rival → social_loss or social_win).
-    //   innateValence?  — if set, the agent is born expecting this much valence from this feature pattern.
-    //   innateConf?     — confidence of the innate expectation (defaults to 0.3 if omitted).
+    //   features         — {size, color, shape} perceptual identity (must be unique per archetype, since memory
+    //                      keys are derived from featureKey(features) — collisions = ambiguous learning signal)
+    //   events           — array of event keys that fire when this object is approached. Empty = neutral (no US,
+    //                      stepApproach handles inline with a curiosity bump + "this = nothing" memory update).
+    //                      Multiple = the approach picks one at random (e.g. rival → social_loss or social_win).
+    //   innateValence?   — if set, the agent is born expecting this much valence from this feature pattern.
+    //   innateConf?      — confidence of the innate expectation (defaults to 0.3 if omitted).
+    //   spawns?          — { state: rate } per-tick spawn probability for each behaviour state. Absolute chance
+    //                      (not relative): stepSurrounding sums the rates of all archetypes for the current state,
+    //                      rolls once against the sum, weighted-picks which archetype. Unspecified = 0 (never spawns
+    //                      in that state). Tune live via the spawn-rates grid in the UI.
+    //   surroundAgeRate? — how fast this object's TTL ages per tick (default 1). The flee/approach target overrides
+    //                      in stepSurrounding still apply on top. Tune live via the spawn-rates grid.
     // INNATE_MEMORY is auto-derived from ARCHETYPES (see below).
     const ARCHETYPES = {
       // ── predators (innate wariness of large dark animal shapes — pre-seeded with valence -0.7, conf 0.6) ──
-      wolf: { features: { size: 'large', color: 'dark', shape: 'animal' }, events: [EV.predator_attack], innateValence: -.7, innateConf: .6 },
-      fox: { features: { size: 'medium', color: 'red', shape: 'animal' }, events: [EV.predator_attack] },
-      owl: { features: { size: 'small', color: 'dark', shape: 'animal' }, events: [EV.predator_attack] },
+      wolf: { features: { size: 'large', color: 'dark', shape: 'animal' }, events: [EV.predator_attack], innateValence: -.7, innateConf: .6,
+              spawns: { idle: 0.00005, foraging: 0.00005, explore: 0.0003, flee_object: 0.005 } },
+      fox: { features: { size: 'medium', color: 'red', shape: 'animal' }, events: [EV.predator_attack],
+             spawns: { idle: 0.00005, foraging: 0.00005, explore: 0.0003, flee_object: 0.003 } },
+      owl: { features: { size: 'small', color: 'dark', shape: 'animal' }, events: [EV.predator_attack],
+             spawns: { idle: 0.00005, explore: 0.0003, flee_object: 0.002 } },
       // ── food (innate attraction to small green round shapes — pre-seeded valence +0.5, conf 0.3) ──
-      berry_bush: { features: { size: 'small', color: 'green', shape: 'round' }, events: [EV.ate_food], innateValence: .5, innateConf: .3 },
-      nut: { features: { size: 'small', color: 'brown', shape: 'round' }, events: [EV.ate_food] },
+      berry_bush: { features: { size: 'small', color: 'green', shape: 'round' }, events: [EV.ate_food], innateValence: .5, innateConf: .3,
+                    spawns: { foraging: 0.005, explore: 0.0015 } },
+      nut: { features: { size: 'small', color: 'brown', shape: 'round' }, events: [EV.ate_food],
+             spawns: { foraging: 0.001, explore: 0.001 } },
       // ── water ──
-      stream: { features: { size: 'large', color: 'blue', shape: 'round' }, events: [EV.drank_water] },
-      puddle: { features: { size: 'small', color: 'blue', shape: 'round' }, events: [EV.drank_water] },
+      stream: { features: { size: 'large', color: 'blue', shape: 'round' }, events: [EV.drank_water],
+                spawns: { foraging: 0.005, explore: 0.0006 } },
+      puddle: { features: { size: 'small', color: 'blue', shape: 'round' }, events: [EV.drank_water],
+                spawns: { foraging: 0.001, explore: 0.0004 } },
       // ── social ──
-      sparrow: { features: { size: 'small', color: 'brown', shape: 'animal' }, events: [EV.grooming_contact] },
-      rival_bird: { features: { size: 'medium', color: 'red', shape: 'angular' }, events: [EV.social_loss, EV.social_win] },   // 50/50 win-or-lose
+      friend: { features: { size: 'small', color: 'brown', shape: 'animal' }, events: [EV.grooming_contact],
+                spawns: { idle: 0.0001, socialising: 0.0015, explore: 0.0002 } },
+      rival: { features: { size: 'medium', color: 'red', shape: 'angular' }, events: [EV.social_loss, EV.social_win],   // 50/50 win-or-lose
+               spawns: { socialising: 0.0008, flee_object: 0.002 } },
       // ── environment / novelty ──
-      cracker: { features: { size: 'small', color: 'brown', shape: 'angular' }, events: [EV.loud_noise] },
+      cracker: { features: { size: 'small', color: 'brown', shape: 'angular' }, events: [EV.loud_noise],
+                 spawns: { explore: 0.001 } },
       // ── body (healing / sickness) ──
-      herb: { features: { size: 'medium', color: 'green', shape: 'plant' }, events: [EV.recovery] },
-      rotten_food: { features: { size: 'small', color: 'brown', shape: 'plant' }, events: [EV.illness_onset] },
+      herb: { features: { size: 'medium', color: 'green', shape: 'plant' }, events: [EV.recovery],
+              spawns: { idle: 0.00005, explore: 0.0005 } },
+      rotten_food: { features: { size: 'small', color: 'brown', shape: 'plant' }, events: [EV.illness_onset],
+                     spawns: { explore: 0.0002 } },
       // ── neutral (no US — approach produces a tiny curiosity bump + "this = nothing" memory update) ──
-      pebble: { features: { size: 'small', color: 'dark', shape: 'round' }, events: [] },
+      pebble: { features: { size: 'small', color: 'dark', shape: 'round' }, events: [],
+                spawns: { idle: 0.0007, socialising: 0.0003, explore: 0.003, approach_object: 0.0005 } },
     };
+
     function objectSvg(features) {
       const sz = SURR_SIZE_PX[features.size], col = SURR_COLOR_HEX[features.color];
       let inner;
@@ -1533,25 +1601,16 @@
       else inner = `<polygon points="${sz / 2},1 ${sz - 1},${sz - 1} 1,${sz - 1}" fill="${col}"/>`;   // animal = triangle
       return `<svg width="${sz}" height="${sz}" aria-hidden="true">${inner}</svg>`;
     }
+
     function randomFeatures() {
       const pick = arr => arr[Math.floor(Math.random() * arr.length)];
       return { size: pick(SURR_FEATURES.size), color: pick(SURR_FEATURES.color), shape: pick(SURR_FEATURES.shape) };
     }
-    // SPAWN_RATES = absolute per-tick spawn probability for each (state, archetype) pair.
-    // Each number IS the spawn chance — no relative weights, no separate spawnRate cap.
-    // At most one object spawns per tick: sum the rates, roll once against the sum, weighted-pick which archetype.
-    // Unspecified cells = 0. Empty state row = nothing spawns in that state.
-    // Tune one cell without recalculating anything else — that was the whole point of the redesign.
-    const SPAWN_RATES = {
-      idle: { pebble: 0.0007, sparrow: 0.0001, wolf: 0.00005, fox: 0.00005, owl: 0.00005, herb: 0.00005 },
-      foraging: { berry_bush: 0.0012, nut: 0.001, stream: 0.0006, puddle: 0.0005, wolf: 0.00005, fox: 0.00005 },
-      socialising: { sparrow: 0.0015, rival_bird: 0.0008, pebble: 0.0003 },
-      explore: { pebble: 0.003, cracker: 0.001, berry_bush: 0.0015, nut: 0.001, wolf: 0.0003, fox: 0.0003, owl: 0.0003, herb: 0.0005, rotten_food: 0.0002, sparrow: 0.0002, stream: 0.0003, puddle: 0.0002 },
-      nrem: {},   // no spawns while sleeping
-      rem: {},
-      approach_object: { pebble: 0.0005 },   // minimal ambient spawns while focused on a target (don't distract)
-      flee_object: { wolf: 0.005, fox: 0.003, owl: 0.002, rival_bird: 0.002 },   // scary things while fleeing
-    };
+
+    // (Spawn rates now live on each archetype's .spawns field — see ARCHETYPES above. The old separate
+    // SPAWN_RATES table (organized by state) was folded into the archetypes so each archetype owns its own
+    // spawn rates and can be tuned live via the spawn-rates grid in the UI.)
+
     // spawnObject = push a new archetype instance into W.surrounding.
     // Signature changed: takes the archetype NAME (looked up in ARCHETYPES), not (features, underlyingType).
     function spawnObject(name, ttl = 200) {
@@ -1560,12 +1619,18 @@
       if (!arch) return;
       W.surrounding.push({ id: nextObjectId++, name, features: arch.features, events: arch.events, ttl, age: 0 });
     }
+
     // stepSurrounding = ambient random spawning + TTL aging + despawn + preview pulse.
-    // Called from tick() after stepWorld(). Takes s so the preview pulse can apply malaise dampers.
+    // Called from tick() after stepWorld(). Takes s so the preview pulse can apply the sleep-debt anhedonia damper (K.sleepDebtAnhedonia × s.dep).
     function stepSurrounding(s) {
-      // Spawn: sum rates for the current state, roll once, weighted-pick which archetype.
-      const rates = SPAWN_RATES[behaviour] || {};
-      const entries = Object.entries(rates).filter(([, r]) => r > 0);
+      // Spawn: iterate all archetypes, collect each one's spawn rate for the current behaviour state,
+      // sum them, roll once against the sum, weighted-pick which archetype. (Rates live on arch.spawns now,
+      // not on a separate SPAWN_RATES table — so tuning one archetype's rates doesn't require touching others.)
+      const entries = [];
+      for (const [name, arch] of Object.entries(ARCHETYPES)) {
+        const rate = arch.spawns?.[behaviour] ?? 0;
+        if (rate > 0) entries.push([name, rate]);
+      }
       const totalRate = entries.reduce((sum, [, r]) => sum + r, 0);
       if (totalRate > 0 && Math.random() < totalRate) {
         let r = Math.random() * totalRate;
@@ -1574,11 +1639,12 @@
           if (r <= 0) { spawnObject(name); break; }
         }
       }
-      const b = ST[behaviour] || {};
-      const ageRate = b.surroundAgeRate ?? 1;
+      // Age: each object's TTL ages at its archetype's surroundAgeRate (default 1). The flee/approach target
+      // overrides still apply on top — fleeing makes the pursued target leave fast, approaching freezes it.
       const target = eyes();
       for (const obj of W.surrounding) {
-        let rate = ageRate;
+        const arch = ARCHETYPES[obj.name];
+        let rate = arch?.surroundAgeRate ?? 1;
         if (behaviour === 'flee_object' && target && obj.id === target.id) rate = Math.max(rate, 5);   // fleeing → target leaves view fast
         if (behaviour === 'approach_object' && target && obj.id === target.id) rate = 0;                // approaching → target stays until reached
         obj.age += rate;
@@ -1589,6 +1655,7 @@
       if (tgt) previewPulse(tgt, s);
       else lastPreviewedKey = null;   // nothing visible → next spawn triggers a fresh preview
     }
+
     // renderSurrounding = rebuild the surrounding list DOM. Called every frame from readout() (small list, no perf issue).
     function renderSurrounding() {
       const list = $('#surroundingList');
@@ -1607,6 +1674,7 @@
     //   conf     = 0..1, confidence (grows with each encounter, shrinks with contradiction)
     //   count    = how many times this feature-pattern has been encountered
     //   lastSeen = tick of last encounter (for future forgetting / decay)
+    
     // The agent never sees the archetype name; it only sees features. Memory links features to expected valence.
     let memory = new Map();
 
@@ -1656,26 +1724,25 @@
       Object.assign(P, CONFIG);
       // Reset world state FIRST (S.ct reads W.hour for the body-clock start time).
       W = {
-        light: 0,           // 0 dark .. 1 full daylight (from the sun, if sunlight is on)
+        light: 0,           // 0 dark .. 1 full daylight (from the sun)
         conspecifics: 0,    // how many others of its own kind are nearby
         temp: 18,           // ambient temperature in degrees C (comfortable is 20)
         surrounding: [],    // currently-visible objects (see stepSurrounding / renderSurrounding)
         ...WORLD_DEFAULTS
-      };   // hour + sun — world state, not parameters
-      deriveWorld();   // immediately recompute W.light + W.temp from the (just-reset) hour + sun, so the gauges are consistent even while paused (no tick yet)
+      };   // hour — world state, not parameters
+      deriveWorld();   // immediately recompute W.light + W.temp from the (just-reset) hour, so the gauges are consistent even while paused (no tick yet)
       S = {
         v: HOME.v, a: HOME.a, d: HOME.d, bv: HOME.v, ba: HOME.a, bd: HOME.d, h: .8, wt: .8, hp: 1, ill: false, sp: .35, ct: W.hour,
-        asleep: false, tin: 0, ut: 0, slept: P.expect, dbt: 0, dep: 0, cool: 0, led: false, malaise: 0, approachTimer: 0
+        asleep: false, tin: 0, ut: 0, slept: P.expect, dbt: 0, dep: 0, cool: 0, led: false, approachTimer: 0
       };
       behaviour = 'idle';
       H = []; N = 0; M = []; Q = []; LOG = []; evSeq = 0; PULSES = [];
       customQueue.length = 0;   // also wipe the staged custom-event pulses so Reset returns a clean slate
       lastPreviewedKey = null;   //  clear after reset so the first seen object triggers a fresh preview
       seedMemory();   //  reset memory to innate pre-seed entries
-      // Sync every slider + the optSun checkbox to the reset values. (No-op on the very first init() call
-      // before build() has run, since the slider elements don't exist yet — sync() bails when !input.)
+      // Sync every slider to the reset values. (No-op on the very first init() call before build() has run,
+      // since the slider elements don't exist yet — sync() bails when !input.)
       for (const [k] of SLIDERS) sync(k);
-      const sunBox = $('#optSun'); if (sunBox) sunBox.checked = W.sun;
     }
     init();
 
@@ -1701,7 +1768,8 @@
       stepSleepPressure(s, body.noon);
       stepSleepWake(s, body);
       stepApproach(s);   //  handle approach_object completion (US fires, target consumed)
-      chooseBehaviourAndRandomEvents(s, m, body.ea);
+      if (!s.asleep && N % P.decideevery === 0) chooseBehaviour(s, m, body.ea);
+      chooseRandomEvents(s, m, body.ea);
       record(s, m, body);
       N++;
     }
@@ -1714,11 +1782,13 @@
       s.d += (s.bd - s.d) * P.decay;
       s.a += (s.ba - s.a) * P.decay;
     }
+
     // The current behaviour's steady effect on mood: push = nudge, tug = pull toward a target
     function applyBehaviour(s, def) {
       for (const k in def.push) s[k] += def.push[k];
       for (const k in def.tug) s[k] += (def.tug[k][0] - s[k]) * def.tug[k][1];
     }
+
     // ---- Event pulses ----
     // An event is a few PULSES, each with a size (amp) and a fade time (tau, in ticks). A pulse adds amp x exp(-age / tau) to the mood:
     // a small tau is a quick spike, a big tau is a lingering tail. A pulse is dropped once it has faded to under 0.5% of its size.
@@ -1727,6 +1797,7 @@
     function pulsesOf(e, imp) {
       return e.pulses || ['v', 'a', 'd'].flatMap(dim => SHAPE[dim].map(([share, tau]) => ({ dim, amp: imp[dim] * share, tau })));
     }
+    
     // needMult = need-relevance multiplier for an event group, based on the agent state s and world W.
     // 1 = neutral, >1 = more salient when the relevant need is high. Incentive-salience-style modulation
     // (Berridge & Robinson 1998): food is more salient when hungry, social events when isolated, etc.
@@ -1770,32 +1841,34 @@
         const salience = baseSalience * needMult(e.g, s, W);
         const k = salience * (e.g === 'sleep' ? 1 : (def.impact ?? 1));
         const domScale = feltV <= 0 ? K.domGainHalf : 1;
-        // For approach-US events (fromApproach set): measure the actual valence change caused by this event's pulses.
-        // vBefore = felt valence BEFORE this event's pulses are added; vAfter = AFTER. delta = vAfter - vBefore.
-        // This is the ACTUAL felt mood change — accounts for anhedonia, salience, personality. The sign is always
-        // correct (water always feels at least slightly good, even when sick), which fixes the bug where a negative
-        // RANDOM event firing in the same tick could pollute the memory with the wrong valence.
-        const vBefore = e.fromApproach ? clamp(s.v + pulseSum().v) : 0;
+        // For approach-US events (fromApproach set): the teaching signal is THIS event's own valence pulse
+        // contribution (vContrib) — the sum of the valence amps pushed, pre-clamp and post-anhedonia. This is the
+        // US's intrinsic reinforcing value (Rescorla-Wagner λ), NOT the felt mood change, so it is unaffected by
+        // saturation (a well-fed agent whose felt valence is already near +1 still learns food is good) and by
+        // delayed pulses (their amps count at push time, before they start fading). Motivation modulation comes
+        // from needMult via k (food more salient when hungry) and is undone by /k below; anhedonia
+        // (sleepDebtAnhedonia) is applied as a known scalar and is NOT undone, so sleep debt reduces the teaching
+        // magnitude without flipping the sign.
+        let vContrib = 0;
         for (const p of pulsesOf(e, imp)) {
           let amp = p.amp * k;
-          if (p.dim === 'v') { amp *= P.pers; if (amp > 0) amp *= 1 - P.posValenceSuppress * s.malaise; }
-          if (p.dim === 'a') amp *= 1 - P.phasicBlunt * s.malaise;
-          if (p.dim === 'd' && amp > 0) amp *= domScale * (1 - P.posDomDamp * s.malaise);
+          if (p.dim === 'v') {
+            amp *= P.pers;
+            if (amp > 0) amp *= 1 - K.sleepDebtAnhedonia * s.dep;
+            vContrib += amp;
+          }
+          if (p.dim === 'd' && amp > 0) amp *= domScale;
           PULSES.push({ dim: p.dim, amp, tau: p.tau, age: -(p.delay ?? 0) });
         }
         if (e.food) s.h = clamp01(s.h + e.food * P.foodQuality);
         if (e.water) s.wt = clamp01(s.wt + e.water);
         if (e.hp) s.hp = clamp01(s.hp + e.hp);
         if (e.act) e.act(W, s);
-        // Learning: only for approach-US events (fromApproach set). The teaching signal = the actual valence delta
-        // (vAfter - vBefore), scaled back up by dividing by k (the strength multiplier) to recover a value in the
-        // -1..+1 range comparable to imp.v. This way: (a) only approach encounters teach, (b) the sign is always
-        // correct (anhedonia reduces magnitude but never flips the sign), (c) the learned valence stays compatible
-        // with the existing decision thresholds (OVERRIDE 2/4 expect -0.3..+0.3 range).
+        // Learning: only for approach-US events (fromApproach set). teachingSignal = vContrib / k, which undoes the
+        // salience scaling to recover a value in the imp.v × pers × (1 - anhedonia) range — compatible with the
+        // existing decision thresholds (OVERRIDE 2/4 expect -0.3..+0.3 range; imp.v is ±0.7..1.0, pers-scaled).
         if (e.fromApproach) {
-          const vAfter = clamp(s.v + pulseSum().v);
-          const delta = vAfter - vBefore;
-          const teachingSignal = k > 0 ? delta / k : delta;   // undo salience scaling → recover ~imp.v × pers × (1 - anhedemia)
+          const teachingSignal = k > 0 ? vContrib / k : vContrib;
           learnFromEvent(e.fromApproach, teachingSignal);
         }
       }
@@ -1804,7 +1877,9 @@
       if (LOG.length > 10) LOG.pop();
       while (M.length && M[0].n < N - 600) M.shift();
     }
+
     function clampMood(s) { s.v = clamp(s.v); s.a = clamp(s.a); s.d = clamp(s.d); }
+
     // Awake: the baseline drifts toward recent mood (a slow running mean), and long-term gloom drains it.
     // Asleep: sleep is not "experience", so the running mean is frozen and the baseline is REPAIRED toward HOME instead.
     function moveBaseline(s, def, m) {
@@ -1812,23 +1887,19 @@
         s.bv += (m.v - s.bv) * P.drift;
         s.ba += (m.a - s.ba) * P.drift;
         s.bd += (m.d - s.bd) * P.drift;
-        // Shared malaise → tonic VAD arousal drop (lethargy). All unwell sources (sleep debt + sickness + low HP) pull
-        // tonic VAD arousal DOWN. This is the construct-correct mapping: physiological hyperarousal (cortisol, sympathetic
-        // tone) is real but belongs elsewhere — it shows up as asymmetric anhedonia (posValenceSuppress, Motomura 2013)
-        const tonicA = -P.malaiseTonicLethargy * s.malaise;
-        s.ba += (tonicA - s.ba) * P.tonicRate;
-        // Shared malaise → tonic valence drop ("shifts negative"). Direct push on baseline valence, independent of the
-        // asymmetric pulse-side anhedonia (posValenceSuppress). Together they produce the table's "shifts negative; positive
-        // end attenuated" — the valence drop is symmetric (pulls bv toward -malaiseValenceDrop × malaise), the anhedonia
-        // is asymmetric (only dampens positive pulses). Both are malaise-driven, not sleep-debt-specific.
-        s.bv += (-P.malaiseValenceDrop * s.malaise - s.bv) * P.tonicRate;
-        // Shared malaise: tonic dominance target drops with malaise (low reactive dominance, regardless of source).
-        s.bd += (-P.malaiseDominanceDrop * s.malaise - s.bd) * P.tonicRate;
-        if (s.bv < P.thr) { s.ba *= P.depfactor; s.bd *= P.depfactor; }               
-        // depletion: gloom drains baseline arousal and dominance (separate mechanic — triggers on low valence, not on malaise)
+        // Per-source unwell pushes (replaces the old malaise aggregator). Each source pushes baseline mood directly,
+        // like the `need` push in applyNeeds — not a pull-toward-target. Sleep debt is the biggest driver; sickness
+        // and low HP add to the same push. Physiological hyperarousal (cortisol) is NOT routed here — it shows up
+        // as asymmetric anhedonia in fireEvents (sleepDebtAnhedonia, Motomura 2013), not as a tonic arousal push.
+        const unwell = s.dep + (s.ill ? 1 : 0) + (1 - s.hp);
+        s.bv -= K.unwellValence * unwell;                   // being unwell feels bad (valence down)
+        s.ba -= K.unwellLethargy * unwell;                   // and lethargic (tonic arousal down)
+        s.bd -= K.unwellDominance * unwell;                  // and low in reactive dominance
+        if (s.bv < P.thr) { s.ba *= P.depfactor; s.bd *= P.depfactor; }
+        // depletion: gloom drains baseline arousal and dominance (separate mechanic — triggers on low valence, not on unwellness)
       } else {
-        const r = P.repair * (def.repair ?? 0) * (1 - P.malaiseRepairDamp * s.malaise);        
-        // r = repair per tick. Sleep repair dampened by malaise (configurable; default 0.5 = halved at full malaise).
+        const r = P.repair * (def.repair ?? 0);
+        // r = repair per tick (literature-backed sleep repair, no malaise damper).
         s.bv += (HOME.v - s.bv) * r; s.ba += (HOME.a - s.ba) * r; s.bd += (HOME.d - s.bd) * r;
       }
     }
@@ -1837,7 +1908,7 @@
     function applyNeeds(s, def) {
       const comfort = 1 - Math.min(1, Math.abs(W.temp - K.tempIdeal) / K.tempRange);   // 1 at 20 C, 0 at 5 C or 35 C
       const use = def.hunger ?? 1;                                        // ?? 1 = "use 1 if the behaviour has no hunger field"
-      s.h = clamp01(s.h - P.hrate * use * (1 + K.deprivedBurn * s.dep) - (1 - comfort) * K.coldBurn);   // sleep loss and cold both burn energy
+      s.h = clamp01(s.h - P.hrate * use * (1 + K.sleepDeprivedBurn * s.dep) - (1 - comfort) * K.coldBurn);   // sleep loss and cold both burn energy
       s.wt = clamp01(s.wt - P.wrate * use * (1 + K.thirstFromHunger * (1 - s.h)));                        // thirst runs faster when hungry
       const hurt = m => Math.max(0, K.needFloor - m) / K.needFloor;       // hurt = 0 while a meter is above .4, rising to 1 when empty
       const need = hurt(s.h) + hurt(s.wt);
@@ -1854,14 +1925,15 @@
     }
 
     /* ---- World (uses: speed, hour, rate) ---- */
-    // deriveWorld = recompute the *derived* world fields (light, temp) from W.hour + W.sun.
-    // Called from stepWorld() every tick AND from anywhere that mutates W.hour / W.sun directly
-    // (init(), setParam('hour',…), the optSun checkbox handler) so the light/temp gauges stay
-    // consistent even while the sim is paused (no ticks running).
+    // deriveWorld = recompute the *derived* world fields (light, temp) from W.hour.
+    // Called from stepWorld() every tick AND from anywhere that mutates W.hour directly
+    // (init(), setParam('hour',…)) so the light/temp gauges stay consistent even while the sim is paused
+    // (no ticks running).
     function deriveWorld() {
-      W.light = W.sun ? daylight(W.hour) : 0;
+      W.light = daylight(W.hour);
       W.temp = 18 + 6 * Math.sin((W.hour - 9) / 24 * 2 * Math.PI);   // ambient temperature: daily cycle 12-24°C
     }
+
     function stepWorld() {
       if (clock) { W.hour = (W.hour + DT) % 24; sync('hour'); }           // only the WORLD clock stops when unticked; the body keeps running
       deriveWorld();
@@ -1889,12 +1961,11 @@
       // body clock passed 12:00: close the day's ledger (a shortfall adds debt, extra sleep pays it down)
       if (s.led && s.ct < 6) s.led = false;                                        
       // re-arm in the morning, so dragging the clock back and forth cannot close it twice
-      s.dep = clamp01(s.dbt / P.expect);                                  
+      s.dep = clamp01(s.dbt / P.expect);
       // 0 = well rested, 1 = total deprivation
-      s.malaise = clamp01(Math.max(s.dep, s.ill ? 1 : 0, 1 - s.hp) + P.malaiseOffset);   
-      // shared malaise: aggregates sleep dep + sickness + low health, plus user's direct malaiseOffset boost (the "mess with malaise directly" knob)
       if (s.cool > 0) s.cool--;
     }
+    
     // Sleep / wake decision and the NREM / REM cycle
     function stepSleepWake(s, body) {
       // wp = wake pressure: positive means "wake up now"
@@ -1915,20 +1986,32 @@
 
     /* ---- Behaviour and random events ---- */
     // c = everything the rules can see: the agent's own state plus c.world. sat = how full is "full enough" (sleep-deprived agents need more food).
-    function chooseBehaviourAndRandomEvents(s, m, ea) {
+    // chooseBehaviour = wrapper for decide(). Builds the decision context c and runs the behaviour-selection
+    // cascade (overrides + weighted pick). Gated by tick() — only called when awake and on the decide schedule
+    // (every P.decideevery ticks).
+    function chooseBehaviour(s, m, ea) {
       const c = {
         h: s.h, wt: s.wt, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
         state: behaviour, asleep: s.asleep, temperament: TEMP, world: W
       };
-      // decide on schedule (every P.decideevery ticks).
-      if (!s.asleep && N % P.decideevery === 0) decide(c);
-      for (const r of RANDOM) {                                           
+      decide(c);
+    }
+    // chooseRandomEvents = roll the RANDOM table. Each row rolls its chance, then checks its dependencies (when),
+    // and may push an event to Q or fire an act. A row may wake the agent or change behaviour, so c is refreshed
+    // after each firing row for the later rows to see. Runs every tick regardless of sleep/decide schedule.
+    function chooseRandomEvents(s, m, ea) {
+      const c = {
+        h: s.h, wt: s.wt, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
+        state: behaviour, asleep: s.asleep, temperament: TEMP, world: W
+      };
+      for (const r of RANDOM) {
         // each random row rolls its chance, then checks its dependencies
-        if (Math.random() < r.chance * P.rate * (r.hp ? s.hp : 1) && r.when(c)) 
-        { if (r.event) Q.push(EVENT_BY_KEY[r.event]); if (r.act) r.act(W, s); c.asleep = s.asleep; c.state = behaviour; }   
+        if (Math.random() < r.chance * P.rate * (r.hp ? s.hp : 1) && r.when(c))
+        { if (r.event) Q.push(EVENT_BY_KEY[r.event]); if (r.act) r.act(W, s); c.asleep = s.asleep; c.state = behaviour; }
         // a row may change the agent (wake it), so refresh what the later rows see
       }
     }
+
     // Write this tick into the history that the charts read
     function record(s, m, body) {
       H.push({ v: m.v, a: body.ea, d: m.d, bv: s.bv, ba: clamp(s.ba + body.offset), bd: s.bd, h: s.h, wt: s.wt, hp: s.hp, sp: s.sp, b: behaviour });
@@ -2064,7 +2147,7 @@
       if (!L) { setText('#moodLabel', ''); setText('#behaviourLabel', ''); setText('#status', ''); return; }   // "nothing yet" e.g. just after Reset
       const p = H[L - 1], f = (v, b) => v.toFixed(2) + (b === undefined ? '' : ' (' + b.toFixed(2) + ')');   // baseline in compact parens, e.g. "-0.38"; baseline is also drawn as the dashed line on the chart
       for (const [k] of SER) setText('#value_' + k, f(p[k], BASE_KEY[k] && p[BASE_KEY[k]]));
-      setText('#sleepDebt', t.debt + ': ' + S.dbt.toFixed(1) + 'h · ' + t.malaiseLabel + ': ' + S.malaise.toFixed(2));   // sleep debt (hours) + malaise (shared 0..1)
+      setText('#sleepDebt', t.debt + ': ' + S.dbt.toFixed(1) + 'h');   // sleep debt (hours)
       const quad = p.v >= 0 ? (p.a >= 0 ? 0 : 1) : (p.a >= 0 ? 3 : 2);   // quadrant index: 0 Q1 excited, 1 Q2 calm, 2 Q3 sad, 3 Q4 anxious
       setText('#moodLabel', Math.abs(p.v) < .15 && Math.abs(p.a) < .15 ? t.neutral : t.q[quad]);
       setText('#behaviourLabel', t.st[behaviour]); $('#behaviourLabel').style.color = ST[behaviour].col;
@@ -2160,12 +2243,12 @@
 
 
     // buildParameterTree = all parameter sliders grouped by branch + temperament sub-branch.
-    // input + change events on the sliders and optClock/optSun/optCircadian checkboxes are
+    // input + change events on the sliders and optClock/optCircadian checkboxes are
     // delegated on #params in wireUI() — no per-element attachments here, so re-rendering
     // the parameter tree (e.g. on language change) doesn't re-attach N listeners.
     function buildParameterTree() {
       const root = $('#params'); root.innerHTML = '';
-      [['gm', 0], ['gn', 1], ['gs', 2], ['gw', 3], ['gh', 4], ['gb', 5], ['gmf', 6], ['gl', 7], ['gpv', 8]].forEach(([title, group]) => {
+      [['gm', 0], ['gn', 1], ['gs', 2], ['gw', 3], ['gh', 4], ['gb', 5], ['gl', 7], ['gpv', 8]].forEach(([title, group]) => {
         const branch = addBranch(root, t[title]);
         SLIDERS.filter(row => row[4] === group).forEach(([k, min, max, step]) => {
           addSlider(branch, k, t.p[k], min, max, step, getParam(k));
@@ -2191,7 +2274,6 @@
       };
       // optClock's span gets id="optClockLabel" so clockLabel() can update its tooltip when the speed slider changes.
       addCheck('optClock', 'clock', () => t.clockTip.replace('{s}', (2 / P.speed).toFixed(1)), clock, 'optClockLabel');
-      addCheck('optSun', 'sun', 'sunTip', W.sun);
       addCheck('optCircadian', 'circ', 'circTip', circOn);
     }
 
@@ -2215,19 +2297,21 @@
     // data-cust-idx, or data-cust-del-idx depending on which action they trigger.
     function buildEventGrid() {
       $('#events').innerHTML = '';
-      for (const g in t.eg) {
-        const box = addGroup($('#events'), t.eg[g]); box.classList.add('eventGrid');
-        EVENTS.filter(e => e.g === g && !e.hide).forEach(e => {
-          const button = document.createElement('button');
-          button.style.cssText = 'width:100%;text-align:left';
-          button.dataset.eventKey = e.k;
-          button.title = e.amb ? t.amb
-            : e.pulses ? e.pulses.map(p => `${p.dim === 'v' ? t.val : p.dim === 'a' ? t.aro : t.dom} ${sign(p.amp)} (\u03c4=${p.tau})`).join('  \u00b7  ')
-              : `${t.val} ${sign(e.v)}  ${t.aro} ${sign(e.a)}  ${t.dom} ${sign(e.d)}`;
-          button.innerHTML = `${glyph(e)}<br><b>${evName(e)}</b>${e.amb ? `<br><small>${t.amb}</small>` : ''}`;
-          box.appendChild(button);
-        });
-      }
+      // Sleep events only — these are "more complicated than random" (they force the sleep state machine
+      // via force:true in the #events click handler). Random events get trigger buttons in the random-rate
+      // config (#randomCfg) instead; US events (ate_food, drank_water, predator_attack) fire via archetype
+      // approach. The big preset grid that duplicated all those is gone.
+      const sleepBox = addGroup($('#events'), t.eg.sleep); sleepBox.classList.add('eventGrid');
+      EVENTS.filter(e => e.g === 'sleep' && !e.hide).forEach(e => {
+        const button = document.createElement('button');
+        button.style.cssText = 'width:100%;text-align:left';
+        button.dataset.eventKey = e.k;
+        button.title = e.amb ? t.amb
+          : e.pulses ? e.pulses.map(p => `${p.dim === 'v' ? t.val : p.dim === 'a' ? t.aro : t.dom} ${sign(p.amp)} (\u03c4=${p.tau})`).join('  \u00b7  ')
+            : `${t.val} ${sign(e.v)}  ${t.aro} ${sign(e.a)}  ${t.dom} ${sign(e.d)}`;
+        button.innerHTML = `${glyph(e)}<br><b>${evName(e)}</b>${e.amb ? `<br><small>${t.amb}</small>` : ''}`;
+        sleepBox.appendChild(button);
+      });
       // Custom events group (user-defined, saved to localStorage). Each entry is a button + small × delete.
       const custBox = addGroup($('#events'), t.custEventGroupCustom); custBox.classList.add('eventGrid');
       if (CUSTOM_EVENTS.length === 0) {
@@ -2285,16 +2369,53 @@
         const groupLabel = t.eg[g] || g;
         const items = entries.map(([name, arch]) => {
           const feats = `${t.feat.size[arch.features.size]} \u00b7 ${t.feat.color[arch.features.color]} \u00b7 ${t.feat.shape[arch.features.shape]}`;
-          return `<div class="bestItem">${objectSvg(arch.features)} <b>${name}</b> ${feats} <button class="spawnArch" data-name="${name}">+</button></div>`;
+          // Per-archetype spawn-rate config: a compact table of state-rate inputs (encounters/sim-hour,
+          // CFG_STATES only — approach/flee hidden) + a despawn input. Hidden until the gear button is
+          // clicked. Changes write through live (delegated in wireUI). Display = per-tick × TICKS_PER_HOUR.
+          const cfgRows = CFG_STATES.map(s => {
+            const v = (arch.spawns?.[s] ?? 0) * TICKS_PER_HOUR;
+            return `<tr><td>${STATE_LABELS[s]}</td><td><input type="number" class="spawnCell" data-name="${name}" data-state="${s}" step="0.01" min="0" value="${+v.toFixed(3)}" title="${t.spawnCellTip}"></td></tr>`;
+          }).join('');
+          const av = arch.surroundAgeRate ?? 1;
+          const ageRow = `<tr><td>${t.ageh}</td><td><input type="number" class="spawnCell" data-name="${name}" data-field="age" step="0.1" min="0" value="${av}" title="${t.ageCellTip}"></td></tr>`;
+          return `<div class="bestItem">${objectSvg(arch.features)} <b>${name}</b> ${feats} <button class="spawnArch" data-name="${name}">+</button><button class="archCfg" data-name="${name}" title="${t.spawnTip}">\u2699</button><div class="bestCfg" hidden><table><tbody>${cfgRows}${ageRow}</tbody></table></div></div>`;
         }).join('');
         return `<div class="bestCat">${groupLabel}</div><div class="bestCatGrid">${items}</div>`;
       }).join('');
-      // Click on .spawnArch buttons is delegated on #bestiary in wireUI().
+      // Click on .spawnArch / .archCfg and input on .spawnCell are delegated on #bestiary in wireUI().
+    }
+
+    // SPAWN_STATES + STATE_LABELS = the behaviour states that can spawn objects, and short labels for the
+    // per-archetype spawn-rate config form (rendered inline inside each bestiary item by renderBestiary).
+    // nrem/rem are excluded — no archetype spawns while sleeping. Each archetype's config is a compact
+    // table of state-rate inputs + a despawn (surroundAgeRate) input, toggled by the gear button.
+    // CFG_STATES = SPAWN_STATES minus approach_object/flee_object — those are agent reaction states, not
+    // environment conditions, so they're hidden from the config UI (their source defaults still apply).
+    // TICKS_PER_HOUR = ticks per sim-hour (DT = 0.05 sim-hours/tick → 20). The UI displays spawn rates as
+    // encounters per sim-hour (= per-tick rate × TICKS_PER_HOUR) and converts back to per-tick on input.
+    const SPAWN_STATES = ['idle', 'foraging', 'socialising', 'explore', 'approach_object', 'flee_object'];
+    const STATE_LABELS = { idle: 'idle', foraging: 'forage', socialising: 'social', explore: 'explore', approach_object: 'approach', flee_object: 'flee' };
+    const CFG_STATES = SPAWN_STATES.filter(s => s !== 'approach_object' && s !== 'flee_object');
+    const TICKS_PER_HOUR = 1 / DT;
+
+    // renderRandomCfg = build the live-tunable random-event chances editor. One row per RANDOM entry,
+    // a single number input showing encounters/sim-hour (= per-tick chance × TICKS_PER_HOUR). Changes
+    // write through to r.chance (÷ TICKS_PER_HOUR) immediately and persist to localStorage. The global
+    // 'rate' slider multiplies all of these on top — it is not duplicated here. Called from build().
+    function renderRandomCfg() {
+      const box = $('#randomCfg');
+      if (!box) return;
+      const rows = RANDOM.map(r => {
+        const label = r.id.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+        const v = r.chance * TICKS_PER_HOUR;
+        return `<tr><td>${label}</td><td><input type="number" class="randChance" data-id="${r.id}" step="0.01" min="0" value="${+v.toFixed(3)}" title="${t.randChanceTip}"></td><td><button class="randTrigger" data-id="${r.id}" title="${t.randTriggerTip}">\u25b6</button></td></tr>`;
+      }).join('');
+      box.innerHTML = `<table><tbody>${rows}</tbody></table>`;
     }
 
     // buildArchForm = populate the add-archetype modal's dropdowns (translated). Called from build().
     // The "Outcome" dropdown now lists EVENTS directly (no more TYPE_TO_US indirection) — the user picks
-    // which event fires when this archetype is approached. Multi-event archetypes (like rival_bird) are
+    // which event fires when this archetype is approached. Multi-event archetypes (like rival) are
     // not editable via this form; edit ARCHETYPES in source for those.
     function buildArchForm() {
       const form = $('#archForm');
@@ -2356,6 +2477,7 @@
       $('#slider_hour').disabled = clock;
       renderRefs();
       renderBestiary();
+      renderRandomCfg();
       buildArchForm();
       buildCustEventForm();
     }
@@ -2485,7 +2607,7 @@
         SHOW[box.dataset.s] = box.checked;
       });
 
-      // ===== #params: slider input + optClock/optSun/optCircadian change (delegated) =====
+      // ===== #params: slider input + optClock/optCircadian change (delegated) =====
       // Sliders dispatch by ID prefix: 'slider_temp_*' writes to TEMP, others write to P via setParam.
       // 'speed' is special-cased to also refresh the optClock tooltip.
       $('#params').addEventListener('input', e => {
@@ -2509,21 +2631,67 @@
           clock = box.checked;
           const sliderHour = document.getElementById('slider_hour');
           if (sliderHour) sliderHour.disabled = clock;
-        } else if (box.id === 'optSun') {
-          W.sun = box.checked;
-          deriveWorld();   // recompute light immediately so the gauge updates without needing a tick
         } else if (box.id === 'optCircadian') {
           circOn = box.checked;
         }
       });
 
-      // ===== Bestiary spawn buttons — delegate on #bestiary =====
+      // ===== Bestiary — delegate click + input on #bestiary =====
+      // .spawnArch = spawn one instance now. .archCfg = toggle that archetype's spawn-rate config.
+      // input.spawnCell = live write of spawn rate / despawn rate to ARCHETYPES (no persistence).
       $('#bestiary').addEventListener('click', e => {
-        const btn = e.target.closest('.spawnArch');
+        const spawnBtn = e.target.closest('.spawnArch');
+        if (spawnBtn) {
+          const name = spawnBtn.dataset.name;
+          if (ARCHETYPES[name]) spawnObject(name);
+          renderSurrounding();
+          return;
+        }
+        const cfgBtn = e.target.closest('.archCfg');
+        if (cfgBtn) {
+          const cfg = cfgBtn.parentElement.querySelector('.bestCfg');
+          if (cfg) cfg.hidden = !cfg.hidden;
+        }
+      });
+      $('#bestiary').addEventListener('input', e => {
+        const inp = e.target.closest('input.spawnCell');
+        if (!inp) return;
+        const name = inp.dataset.name;
+        const arch = ARCHETYPES[name];
+        if (!arch) return;
+        const v = parseFloat(inp.value);
+        if (isNaN(v) || v < 0) return;
+        if (inp.dataset.field === 'age') {
+          arch.surroundAgeRate = v;   // despawn rate is a raw multiplier — no conversion
+        } else {
+          // Spawn rates display as encounters/sim-hour; convert back to per-tick for storage.
+          const tickRate = v / TICKS_PER_HOUR;
+          const state = inp.dataset.state;
+          if (!arch.spawns) arch.spawns = {};
+          if (tickRate === 0) delete arch.spawns[state];   // keep the table clean — 0 = unspecified
+          else arch.spawns[state] = tickRate;
+        }
+      });
+
+      // ===== Random-event chances — delegate on #randomCfg (live writes + persist) =====
+      $('#randomCfg').addEventListener('input', e => {
+        const inp = e.target.closest('input.randChance');
+        if (!inp) return;
+        const row = RANDOM.find(r => r.id === inp.dataset.id);
+        if (!row) return;
+        const v = parseFloat(inp.value);
+        if (isNaN(v) || v < 0) return;
+        row.chance = v / TICKS_PER_HOUR;   // encounters/sim-hour → per-tick
+        saveRandomChances();
+      });
+      // Trigger button: fire a random event manually (bypasses chance roll + when-gate).
+      $('#randomCfg').addEventListener('click', e => {
+        const btn = e.target.closest('button.randTrigger');
         if (!btn) return;
-        const name = btn.dataset.name;
-        if (ARCHETYPES[name]) spawnObject(name);
-        renderSurrounding();
+        const r = RANDOM.find(row => row.id === btn.dataset.id);
+        if (!r) return;
+        if (r.event) Q.push(EVENT_BY_KEY[r.event]);
+        if (r.act) r.act(W, S);
       });
 
       // ===== Custom-event add buttons — delegate on #customButtons =====
