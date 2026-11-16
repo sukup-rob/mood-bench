@@ -29,9 +29,43 @@
 
     body {
       font-family: system-ui, sans-serif;
+      margin: 0 auto;
+      padding: 12px;
+      /* body is now the push-drawer grid: auto drawer (left) + main column (centers content).
+         Drawer on the left to match the left-floated ☰ toggle. Mirrors the old .timelineRow pattern. */
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px
+    }
+
+    /* #main = the centered content column. Takes over body's old max-width: 1040px role.
+       On wide screens the drawer eats the dead left margin before main squishes. */
+    #main {
       max-width: 1040px;
       margin: 0 auto;
-      padding: 12px
+      width: 100%;
+      min-width: 0          /* allow grid to shrink this column below content size */
+    }
+
+    /* #drawer = left-side push panel for authoring blocks (variables, events, params).
+       Same [hidden] pattern as the old #side. */
+    #drawer {
+      width: 320px;
+      min-width: 0
+    }
+
+    #drawer[hidden] {
+      display: none
+    }
+
+    @media(max-width:700px) {
+      body {
+        grid-template-columns: 1fr
+      }
+
+      #drawer {
+        width: auto
+      }
     }
 
     canvas {
@@ -119,31 +153,6 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
       gap: 16px
-    }
-
-    .timelineRow {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px
-    }
-
-    /* chart | variable panel */
-    #side {
-      width: 230px
-    }
-
-    #side[hidden] {
-      display: none
-    }
-
-    @media(max-width:700px) {
-      .timelineRow {
-        grid-template-columns: 1fr
-      }
-
-      #side {
-        width: auto
-      }
     }
 
     details details {
@@ -588,7 +597,40 @@
 </head>
 
 <body>
+  <div id="drawer">
+  <details open>
+    <summary><b data-t="varh"></b></summary>
+    <div id="variableList"></div>
+    <small id="behaviourLegend"></small>
+  </details>
+
+  <details open>
+    <summary><b data-t="evh"></b></summary>
+    <fieldset>
+      <legend data-t="cust"></legend>
+      <div id="customButtons"></div>
+      <div id="customQueue"></div>
+    </fieldset>
+    <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button
+        id="randomEvent" data-t="rand"></button></p>
+      <p><button id="openCustEventEditor" data-t="custEventAdd"></button></p>
+      <details open>
+        <summary data-t="randCfg"></summary>
+        <div id="randomCfg"></div>
+      </details>
+      <div id="events"></div>
+  </details>
+
+  <details open>
+    <summary><b data-t="parh"></b></summary>
+    <div id="params"></div>
+  </details>
+  </div><!-- /#drawer -->
+
+  <div id="main">
   <header>
+    <button id="drawerbtn" style="float:left;margin-right:6px" aria-expanded="true"
+      title="Editor">☰</button>
     <button id="refs" style="float:right;margin-left:6px" aria-label="References / Prameny"
       title="References / Prameny">📑</button>
     <button id="lang" style="float:right" aria-label="Language / Jazyk" title="Language / Jazyk">🌐</button>
@@ -597,19 +639,9 @@
   </header>
 
   <section>
-    <p style="text-align:right;margin:0"><button id="sidebtn" data-a="vars" aria-expanded="true">◧</button></p>
-    <div class="timelineRow">
-      <div>
-        <canvas id="timeline" role="img"></canvas>
-        <b data-t="logh"></b>
-        <div id="eventLog"></div>
-      </div>
-      <div id="side">
-        <b data-t="varh"></b><br>
-        <div id="variableList"></div>
-        <small id="behaviourLegend"></small>
-      </div>
-    </div>
+    <canvas id="timeline" role="img"></canvas>
+    <b data-t="logh"></b>
+    <div id="eventLog"></div>
   </section>
 
   <div class="columns">
@@ -641,28 +673,7 @@
       <canvas id="gaugeHealth" class="gauge" role="img" data-a="hltg"></canvas>
     </section>
   </div>
-
-  <details>
-    <summary><b data-t="evh"></b></summary>
-    <fieldset>
-      <legend data-t="cust"></legend>
-      <div id="customButtons"></div>
-      <div id="customQueue"></div>
-    </fieldset>
-    <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button
-        id="randomEvent" data-t="rand"></button></p>
-      <p><button id="openCustEventEditor" data-t="custEventAdd"></button></p>
-      <details>
-        <summary data-t="randCfg"></summary>
-        <div id="randomCfg"></div>
-      </details>
-      <div id="events"></div>
-  </details>
-
-  <details>
-    <summary><b data-t="parh"></b></summary>
-    <div id="params"></div>
-  </details>
+  </div><!-- /#main -->
 
   <div id="refsModal" hidden>
     <div id="refsBackdrop" onclick="if(event.target===this)$('#refsModal').hidden=true">
@@ -751,7 +762,7 @@
                                         TICK_REAL_S, TICK_SIM_MIN, PULSE_LIFE, fmtLife,
                                         renderCustomQueue, + onclick handlers for
                                         fireCustom / clearCustom / randomEvent / pause /
-                                        reset / sidebtn / lang / timeline-hover)
+                                        reset / drawerbtn / lang / timeline-hover)
        17. References modal           (renderRefs, + onclick handlers for refs / arch /
                                         custEvent modals + archCreate + custEventCreate
                                         + Escape key handler)
@@ -891,7 +902,7 @@
         sb: '−1 submissive', dm: 'dominant +1', sv: '0 starving', fl: 'full 1', dh: '0 dehydrated', hy: 'hydrated 1', hl0: '0 very ill', hl1: 'healthy 1',
         depl: 'Depleting: baseline valence is below the threshold, so baseline arousal and dominance are shrinking.',
         sick: 'Sick: health is slowly draining.',
-        hint: 'Dot = current mood, dashed ring = baseline.',
+        hint: 'Dot = current mood, dashed ring = baseline. If the baseline pegs at an edge with a small arrow, it has gone beyond the chart range (sustained unwellness can push baseline valence/dominance below −1).',
         amb: 'reaction follows mood',
         plane: 'Valence and arousal plane', domg: 'Dominance gauge', hung: 'Hunger gauge', hydg: 'Hydration gauge', hltg: 'Health gauge', litg: 'Light level', slpg: 'Sleep pressure gauge',
         st: { idle: 'Resting', foraging: 'Foraging', socialising: 'Socialising', explore: 'Exploring', nrem: 'NREM sleep', rem: 'REM sleep', approach_object: 'Approaching', flee_object: 'Fleeing object' },
@@ -1611,7 +1622,6 @@
     // SPAWN_RATES table (organized by state) was folded into the archetypes so each archetype owns its own
     // spawn rates and can be tuned live via the spawn-rates grid in the UI.)
 
-    // spawnObject = push a new archetype instance into W.surrounding.
     // Signature changed: takes the archetype NAME (looked up in ARCHETYPES), not (features, underlyingType).
     function spawnObject(name, ttl = 200) {
       if (W.surrounding.length >= 20) return;   // cap at 20 visible objects so the panel doesn't explode
@@ -1620,7 +1630,6 @@
       W.surrounding.push({ id: nextObjectId++, name, features: arch.features, events: arch.events, ttl, age: 0 });
     }
 
-    // stepSurrounding = ambient random spawning + TTL aging + despawn + preview pulse.
     // Called from tick() after stepWorld(). Takes s so the preview pulse can apply the sleep-debt anhedonia damper (K.sleepDebtAnhedonia × s.dep).
     function stepSurrounding(s) {
       // Spawn: iterate all archetypes, collect each one's spawn rate for the current behaviour state,
@@ -1656,7 +1665,7 @@
       else lastPreviewedKey = null;   // nothing visible → next spawn triggers a fresh preview
     }
 
-    // renderSurrounding = rebuild the surrounding list DOM. Called every frame from readout() (small list, no perf issue).
+    // Called every frame from readout() — small list, cheap to rebuild.
     function renderSurrounding() {
       const list = $('#surroundingList');
       if (!list) return;
@@ -1693,7 +1702,6 @@
       .filter(([, arch]) => arch.innateValence !== undefined)
       .map(([_, arch]) => ({ features: arch.features, valence: arch.innateValence, conf: arch.innateConf ?? 0.3 }));
 
-    // seedMemory = reset memory to the innate pre-seed entries. Called from init() on Reset.
     function seedMemory() {
       memory.clear();
       for (const e of INNATE_MEMORY)
@@ -1775,7 +1783,6 @@
     }
 
     /* ---- Mood (uses: decay, afast, drift, pers, thr, dep, repair) ---- */
-    // Pull the slow layer of the mood (the part behaviour and needs push on) back toward baseline.
     // Event effects are not here: they are pulses with their own fade times (see feel).
     function decayMood(s) {
       s.v += (s.bv - s.v) * P.decay;
@@ -2012,7 +2019,6 @@
       }
     }
 
-    // Write this tick into the history that the charts read
     function record(s, m, body) {
       H.push({ v: m.v, a: body.ea, d: m.d, bv: s.bv, ba: clamp(s.ba + body.offset), bd: s.bd, h: s.h, wt: s.wt, hp: s.hp, sp: s.sp, b: behaviour });
       if (H.length > 600) H.shift();                                      // keep only the last 600 ticks
@@ -2060,10 +2066,24 @@
       x.globalAlpha = 1;
       H.forEach((p, i) => { x.fillStyle = ST[p.b].col; x.fillRect(X(i), 0, (w - pad) / 599 + 1, 5); });   // behaviour strip at the very top
       const path = f => { x.beginPath(); H.forEach((p, i) => i ? x.lineTo(X(i), Y(f(p))) : x.moveTo(X(i), Y(f(p)))); x.stroke(); };
+      // pegV = clamp a baseline value into the chart's -1..1 range. moveBaseline's unwell push can drive
+      // bv/bd below -1 (see K.unwellValence etc.), and without this the dashed line walks off the canvas.
+      // The true unclamped value is still shown in the readout strip; this only clips the drawn line.
+      const pegV = v => v < -1 ? -1 : v > 1 ? 1 : v;
       for (const [k] of SER) {
         if (!SHOW[k]) continue;
         x.strokeStyle = COL[k];
-        if (BASE_KEY[k]) { x.globalAlpha = .6; x.lineWidth = 1.5; x.setLineDash([4, 4]); path(p => p[BASE_KEY[k]]); }
+        if (BASE_KEY[k]) {
+          x.globalAlpha = .6; x.lineWidth = 1.5; x.setLineDash([4, 4]); path(p => pegV(p[BASE_KEY[k]]));
+          // edge peg: if the latest baseline is off-axis, drop a triangle at the chart edge pointing outward,
+          // so a pegged baseline reads as "lower than -1" rather than "sitting at -1".
+          const last = H[L - 1][BASE_KEY[k]];
+          if (last < -1 || last > 1) {
+            const px = X(L - 1), down = last < -1, py = down ? h - 8 : lineTop;
+            x.globalAlpha = .9; x.setLineDash([]); x.fillStyle = COL[k];
+            x.beginPath(); x.moveTo(px, py + (down ? 6 : -6)); x.lineTo(px - 4, py); x.lineTo(px + 4, py); x.fill();
+          }
+        }
         x.globalAlpha = 1; x.lineWidth = 2.2; x.setLineDash([]); path(p => STRETCH[k] ? 2 * p[k] - 1 : p[k]);
       }
       // Number tags live in the tag strip above the line area. Each tag is colored by the primary event group
@@ -2097,8 +2117,22 @@
       const trail = H.slice(-90); x.fillStyle = COL.v;                    // trail = the last 90 ticks
       trail.forEach((p, i) => { x.globalAlpha = i / trail.length * .5; x.beginPath(); x.arc(X(p.v), Y(p.a), 3, 0, 7); x.fill(); });
       const p = H[L - 1];
+      // Baseline ring position is clamped to the plane so it can't leave the frame (see pegV in drawTimeline).
+      // The actual bv/ba can exceed the -1..1 axis under sustained unwellness; the ring pegs at the edge,
+      // and a small arrow on the ring points outward to signal "below the floor".
+      const rBv = p.bv < -1 ? -1 : p.bv > 1 ? 1 : p.bv, rBa = p.ba < -1 ? -1 : p.ba > 1 ? 1 : p.ba;
       x.globalAlpha = .8; x.strokeStyle = COL.a; x.setLineDash([3, 3]);
-      x.beginPath(); x.arc(X(p.bv), Y(p.ba), 9, 0, 7); x.stroke();        // dashed ring = baseline
+      x.beginPath(); x.arc(X(rBv), Y(rBa), 9, 0, 7); x.stroke();        // dashed ring = baseline (pegged to frame)
+      if (p.bv < -1 || p.bv > 1 || p.ba < -1 || p.ba > 1) {
+        // outward arrow: points from ring center toward the true (off-axis) baseline position.
+        const dx = p.bv - rBv, dy = (p.ba - rBa) * -1;   // y axis inverted: arousal up = smaller pixel row
+        const a = Math.atan2(dy, dx);
+        x.setLineDash([]); x.globalAlpha = .9; x.strokeStyle = COL.a;
+        x.beginPath();
+        x.moveTo(X(rBv) + Math.cos(a) * 9, Y(rBa) + Math.sin(a) * 9);
+        x.lineTo(X(rBv) + Math.cos(a) * 16, Y(rBa) + Math.sin(a) * 16);
+        x.stroke();
+      }
       x.globalAlpha = 1; x.beginPath(); x.arc(X(p.v), Y(p.a), 7, 0, 7); x.fill();   // dot = current mood
     }
 
@@ -2120,7 +2154,6 @@
       x.fillStyle = INK; x.textAlign = 'center'; x.fillText(name + ' ' + val.toFixed(2), w / 2, 11);
     }
 
-    // Update the numbers, labels, and event list
     let lastLogKey = '';   // lastLogKey = what the event list showed last time, so it is rebuilt only when it changes
     function readout() {
       setText('#clockText', fmt('hour', W.hour));
@@ -2204,13 +2237,11 @@
       const input = d.querySelector('input'), out = d.querySelector('output');
       input.value = val; out.textContent = fmt(key, val, step);
     }
-    // Move a slider to match a value the code changed (the running clock)
     function sync(key) {
       const input = $('#slider_' + key), row = SLIDERS.find(r => r[0] === key); if (!input || !row) return;   // only the main sliders have a row
       const v = getParam(key);   // 'hour' lives in W now; everything else in P
       input.value = v; $('#out_' + key).textContent = fmt(key, v, row[3]);
     }
-    // A titled box with a grid inside (used for event groups) and a collapsible branch of the parameter tree.
     function addGroup(parent, title) {
       const f = document.createElement('fieldset');
       f.innerHTML = `<legend>${title}</legend><div class="grid"></div>`;
@@ -2219,6 +2250,7 @@
     }
     function addBranch(parent, title) {
       const d = document.createElement('details');
+      d.open = true;   // parameter sub-branches open by default (drawer declutter: show everything until the user closes it)
       d.innerHTML = `<summary>${title}</summary><div class="grid"></div>`;
       parent.appendChild(d);
       return d.lastChild;
@@ -2235,14 +2267,12 @@
       $('#behaviourLegend').innerHTML = Object.keys(ST).map(k => `<span style="color:${ST[k].col}">\u25a0</span> ${t.st[k]}`).join(' &nbsp; ');
     }
 
-    // buildVariablePanel = the checkboxes + live numbers next to the timeline.
     // The change event is delegated on #variableList in wireUI() — no per-element attachment.
     function buildVariablePanel() {
       $('#variableList').innerHTML = SER.map(([k, n]) => `<label><input type="checkbox" data-s="${k}" ${SHOW[k] ? 'checked' : ''}> <span style="color:${COL[k]}">\u25a0</span> ${t[n]} <b id="value_${k}"></b></label><br>`).join('');
     }
 
 
-    // buildParameterTree = all parameter sliders grouped by branch + temperament sub-branch.
     // input + change events on the sliders and optClock/optCircadian checkboxes are
     // delegated on #params in wireUI() — no per-element attachments here, so re-rendering
     // the parameter tree (e.g. on language change) doesn't re-attach N listeners.
@@ -2277,7 +2307,6 @@
       addCheck('optCircadian', 'circ', 'circTip', circOn);
     }
 
-    // buildCustomEventComposer = the three "+ add pulse" buttons + queue list.
     // The click event is delegated on #customButtons in wireUI() — each button carries data-dim.
     function buildCustomEventComposer() {
       $('#customButtons').innerHTML = '';
@@ -2292,7 +2321,6 @@
       renderCustomQueue();
     }
 
-    // buildEventGrid = the preset event buttons, grouped by category.
     // Click events are delegated on #events in wireUI() — buttons carry data-event-key,
     // data-cust-idx, or data-cust-del-idx depending on which action they trigger.
     function buildEventGrid() {
@@ -2351,7 +2379,6 @@
     // (Originally colocated with the memory Map for "nearby data" reasons; moved here so the
     // Memory & learning section contains only memory logic + lifecycle.)
 
-    // renderBestiary = show the archetype catalog grouped by event group (threat/food/social/env/body/sleep/neutral).
     // Each group header uses t.eg[g] (existing translation). Neutral (no events) uses t.eg.neutral.
     function renderBestiary() {
       const list = $('#bestiary');
@@ -2413,7 +2440,6 @@
       box.innerHTML = `<table><tbody>${rows}</tbody></table>`;
     }
 
-    // buildArchForm = populate the add-archetype modal's dropdowns (translated). Called from build().
     // The "Outcome" dropdown now lists EVENTS directly (no more TYPE_TO_US indirection) — the user picks
     // which event fires when this archetype is approached. Multi-event archetypes (like rival) are
     // not editable via this form; edit ARCHETYPES in source for those.
@@ -2429,7 +2455,6 @@
   `;
     }
 
-    // buildCustEventForm = populate the custom-event editor modal's fields (translated). Called from build().
     // The form fields: name (text), group (dropdown), v/a/d impacts (number -1..1), hp/food/water (number, optional).
     // On Create, the form values are read by the #custEventCreate click handler (below the script body).
     function buildCustEventForm() {
@@ -2448,7 +2473,6 @@
   `;
     }
 
-    // renderMemory = rebuild the memory list DOM. Called every frame from readout().
     function renderMemory() {
       const list = $('#memoryList');
       if (!list) return;
@@ -2467,7 +2491,6 @@
         }).join('');
     }
 
-    // (Re)build everything that holds text. Runs at load and on every language change.
     function build() {
       buildText();
       buildVariablePanel();
@@ -2515,7 +2538,7 @@
     // parents (#customQueue, #bestiary, #events, #variableList, #params, #customButtons,
     // #timeline) catch clicks/changes/inputs from their children via event bubbling —
     // no re-attachment when build() re-renders the DOM on language change. Static
-    // element handlers (#pause, #reset, #sidebtn, #lang, modal open + create buttons)
+    // element handlers (#pause, #reset, #drawerbtn, #lang, modal open + create buttons)
     // attach once here too.
     //
     // Convention: every dynamically-created interactive element carries a data-* attribute
@@ -2526,7 +2549,7 @@
       // ===== Static button handlers (attach once) =====
       $('#pause').addEventListener('click', () => { run = !run; $('#pause').textContent = run ? t.pause : t.resume; });
       $('#reset').addEventListener('click', init);
-      $('#sidebtn').addEventListener('click', () => { const side = $('#side'); side.hidden = !side.hidden; $('#sidebtn').setAttribute('aria-expanded', !side.hidden); });
+      $('#drawerbtn').addEventListener('click', () => { const d = $('#drawer'); d.hidden = !d.hidden; $('#drawerbtn').setAttribute('aria-expanded', !d.hidden); });
       $('#lang').addEventListener('click', () => { lang = lang === 'en' ? 'cs' : 'en'; build(); });
 
       // Custom event composer buttons
@@ -2764,7 +2787,6 @@
     requestAnimationFrame(frame);
 
     /* ============ References modal ============ */
-    // Renders the bibliography from t.refs into the modal. Called from build() so it tracks language changes.
     // Refs are grouped under their `topic` field — emitted as a small uppercase header whenever the topic changes.
     function renderRefs() {
       let html = '', lastTopic = null;
