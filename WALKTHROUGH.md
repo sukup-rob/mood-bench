@@ -2,7 +2,7 @@
 
 
 
-# functions (stale)
+# functions (VERY stale)
 
 ## misc
 `push: { a: .002 }` = add 0.002 to arousal every tick
@@ -93,21 +93,6 @@
 
 
 
-# variables (...stale..?)
-
-## ST
-state/behaviour table.
-for example:
-```js
-foraging: {
-  col: '#c9772b',          // colour on the mood-plane / timeline
-  hunger: 1.8,             // how fast hunger burns while in this state
-  push: { a: .002 },       // steady nudge on arousal each tick
-  // (no tug here)
-  want: c => Math.max(...),// how much the agent WANTS to enter this state (decision fn)
-  surroundAgeRate: 1       // how fast nearby objects despawn
-}
-```
 
 ---
 
@@ -125,15 +110,15 @@ foraging: {
 - metabolism rate. affected by speed, heat, health, ...? should have a number it doesnt go under.
 - Catabolism rate. higher catabolism = higher energy bar filling + higher hunger bar emptying. affected by stress, behaviour... should have a number it never goes under.
 - speed meter. affected by behaviour, temperament, health, ...?. higher speed = objects spawn more + metabolism rate goes up. is closer to "behaviour" than to "hunger", categorically.
-- The code only does instrumental ("I chose to approach this, and it felt X"), never Pavlovian ("this was present when X happened to me"). FIX  THAT
-- continue messing with the event rates section. theres already a custom-event button builder, if we added group name food water and hp we could just reause it and itd even look better than the gross little popup
 - make the event rates actually be affected by things. (behaviour for now - later location if that gets un-parked)
 - remove "no spikes queued click + to add one" from the custom events button section. replace with like. "no custom events created"
-- decide if baseline going out of bounds is a bug or a feature.
+- NEEDS as a part of memory entries
+- CUSTOM NEEDS AS A PART OF THE GRAPH
+- make needs tweakable from the NEEDS section (then remove needs subsection from parameters section because itll be redundant lol)
+- MAKE HUNGER REMOVABLE
+- make recent events collapsable
+- make the custom event composer suck less
 
-
-
----
 
 # TODO (less important edition)
 - ACTUAL LONGTIME BASELINE ISNT 0,0 BUT DEPENDS FROM INVIDIUAL TO INVIDIUAL. CONNECT WITH TEMPERAMENT MAYBE?
@@ -142,6 +127,7 @@ Long-term set point (weeks/months)
     ↓ pulls adaptation level
 - add seasonal/diurnal tuning. when sun rises and disappears should be sliders, as well as temperature.
 - add a section (similar to sleep) for "hurt" and maybe "feed" and "water". this will be a kind of "artificial magic messing with the agent" section i think.
+- The code only does instrumental ("I chose to approach this, and it felt X"), never Pavlovian ("this was present when X happened to me"). FIX  THAT
 
 ## temperament implementation
 
@@ -222,17 +208,30 @@ Avoidant agent encounters novel stimulus
 
 - environment
 Noted for later — the seed is: a biome or location concept where each archetype lists which biomes it appears in, the agent has a current biome (or x/y position on a biome map), and spawns are rate = biomeSpawnRate[archetype] instead of stateSpawnRate[archetype]. States like fleeing could shift the agent's biome (running blindly into deeper woods), which gives you the cascade effect without the causal inversion.
+- needs vs wants
 
 
 ---
 
-# changelog (kept here so i dont lose it)
+# changelog (kept here so i have it in front of me)
+
 1.1
 - got rid of a clamping issue that broke learning
 - you can now tweak spawn rate of each object (depending on behaviour) (flee/approach ARE behaviours but hidden in UI because tbh i will be getting rid of those anyways)
 - you can now tweak rate of random events. theyre currently not dependant on anything at all which just isnt good lol
 - got rid of the huge button wall of random events. you can still trigger them manually from the same section where you tweak their rates. for now you cant see their values - thatll get fixed lated.
 - broke up malaise into small self-documenting variables (got rid of the "general malaise" slider too) - now got unwellValance, unwellLethargy, unwellDominance, sleepDebtAnhedonia instead.
+
+1.2 (Big Refactor Of Needs)
+- needs now have a little table instead of having to be added at like 7 places in the code
+- you can now add needs! (not showing up in the graph yet.)
+- behaviour didnt change much (unless you add a need) but my function walkthrough is now SEVERELY stale now lol
+- misc: UI update. side menu for parameters and custom events.
+- custom events now show up in custom objects
+- got rid of default water need
+- got rid of one of the event composer (why the hell did we have two of those, anyways)
+
+
 
 
 ---
