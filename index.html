@@ -58,6 +58,48 @@
       display: none
     }
 
+    /* Header layout: the drawer toggle sits at the left edge, title + controls flow after it.
+       Uses flex so the toggle, title, and right-side controls (refs / lang) line up on one row. */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+    header h1 { margin: 0; flex: 1 1 auto; min-width: 0; }
+    header p { margin: 0; flex-basis: 100%; }
+
+    /* Drawer toggle: a labelled sidebar button, not a bare glyph. Shows a panel-bars icon + "Editor"
+       label, a chevron that points toward the drawer (right when closed, left when open), and a
+       pressed/active look when the drawer is visible. aria-expanded is mirrored to the visual state. */
+    #drawerbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      background: rgba(127, 127, 127, .10);
+      border: 1.5px solid rgba(127, 127, 127, .4);
+      border-radius: 6px;
+      color: inherit;
+      font-size: .9em;
+      line-height: 1;
+      transition: background .12s, border-color .12s
+    }
+    #drawerbtn:hover { background: rgba(127, 127, 127, .2); }
+    #drawerbtn[aria-expanded="true"] {
+      background: rgba(127, 127, 127, .22);
+      border-color: rgba(127, 127, 127, .6)
+    }
+    #drawerbtn .dbIcon { display: inline-flex; align-items: center; font-size: 1em; }
+    /* chevron points toward the drawer: when closed (drawer hidden), it points right (open →);
+       when open, it points left (close ←). Flips via aria-expanded. */
+    #drawerbtn .dbChev { transition: transform .12s; display: inline-block; }
+    #drawerbtn[aria-expanded="true"] .dbChev { transform: rotate(180deg); }
+    @media(max-width:560px) {
+      #drawerbtn .dbLabel { display: none; }   /* icon-only on phones, label is too wide */
+    }
+
     @media(max-width:700px) {
       body {
         grid-template-columns: 1fr
@@ -159,9 +201,10 @@
       margin-left: 1em
     }
 
-    /* parameter branches + event groups: matching bordered-box look */
+    /* parameter branches + event groups + custom-event composer: matching bordered-box look */
     #params>details,
-    #events>fieldset {
+    #events>fieldset,
+    #composerField {
       margin: 6px 0;
       padding: 6px 12px;
       border: 1px solid rgba(127, 127, 127, .4);
@@ -293,36 +336,120 @@
     }
 
     #customQueue {
-      min-height: 1.5em
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0
     }
 
+    /* Each staged pulse = a compact card. Header row carries the dim swatch, label, life preview,
+       and the remove button on the far right; amp + τ are full-width slider rows below. Avoids the
+       old cramped single-line flex-wrap that mashed two 80px sliders + labels + life + × together. */
     .queueItem {
-      margin: 2px 0;
       padding: 6px 8px;
+      background: rgba(127, 127, 127, .10);
+      border-left: 3px solid;   /* dim colour set inline per card */
+      border-radius: 3px;
+      font-size: .9em;
+    }
+    .queueItem .qHead {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .queueItem .qHead .life { margin-left: auto; opacity: .6; font-size: .85em; font-weight: 400; }
+    .queueItem .qRow {
+      display: grid;
+      grid-template-columns: 2.5em 1fr 2.5em;
+      align-items: center;
+      gap: 6px;
+      margin: 2px 0;
+    }
+    .queueItem .qRow > output { text-align: right; font-variant-numeric: tabular-nums; opacity: .8; }
+    .queueItem input[type=range] { width: 100%; vertical-align: middle; }
+
+    /* Side effects = a labelled grid. Two columns: label (with swatch) | slider+value, so HP and every
+       need line up vertically regardless of label width. Replaces the old inline-styled dashed divider. */
+    .fxSection {
+      margin-top: 4px;
+      padding: 6px 8px;
+      background: rgba(127, 127, 127, .06);
+      border-radius: 3px;
+    }
+    .fxSection .fxTitle {
+      font-size: .8em;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      opacity: .6;
+      margin-bottom: 4px;
+    }
+    .fxRow {
+      display: grid;
+      grid-template-columns: 8em 1fr 2.5em;
+      align-items: center;
+      gap: 6px;
+      margin: 2px 0;
+      font-size: .9em;
+    }
+    .fxRow > output { text-align: right; font-variant-numeric: tabular-nums; opacity: .8; }
+    .fxRow input[type=range] { width: 100%; vertical-align: middle; }
+
+    /* Need rows in the Needs drawer: mirror the bestiary .bestItem pattern — a compact flex row with
+       a swatch + label + live value + ⚙ gear + × delete, and a hidden .needCfg table toggled by ⚙. */
+    .needItem {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
       background: rgba(127, 127, 127, .12);
       border-radius: 3px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: .85em;
       flex-wrap: wrap;
-      font-size: .9em
+      margin: 2px 0;
     }
-
-    .queueItem label {
-      display: flex;
-      align-items: center;
-      gap: 4px
+    .needItem b { text-transform: capitalize }
+    .needSwatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      flex: 0 0 auto;
     }
-
-    .queueItem input[type=range] {
-      width: 80px;
-      vertical-align: middle
+    .needCfgBtn {
+      padding: 0 4px;
+      font-size: 14px;
+      line-height: 1;
+      vertical-align: middle;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 3px;
     }
-
-    .queueItem .life {
-      opacity: .6;
-      font-size: .85em
+    .needCfgBtn:hover { background: rgba(127, 127, 127, .25) }
+    .needDel {
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 5px;
     }
+    .needDel:hover { background: rgba(127, 127, 127, .25) }
+    .needCfg { margin-top: 4px; width: 100%; overflow: hidden }
+    .needCfg table {
+      border-collapse: collapse;
+      font-size: 11px;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .needCfg td { padding: 1px 2px; white-space: nowrap; overflow: hidden; vertical-align: middle; }
+    .needCfg td:first-child { text-align: right; opacity: .6; width: 5em }
+    .needCfg td:last-child { width: auto }
+    .needCfg td:last-child > input[type=range] { width: calc(100% - 2.7em); vertical-align: middle; min-width: 0 }
+    .needCfg output { display: inline-block; width: 2.5em; text-align: right; font-variant-numeric: tabular-nums; opacity: .8 }
 
     .rmCustom {
       background: transparent;
@@ -606,13 +733,6 @@
 
   <details open>
     <summary><b data-t="evh"></b></summary>
-    <fieldset>
-      <legend data-t="cust"></legend>
-      <div id="customButtons"></div>
-      <div id="customQueue"></div>
-    </fieldset>
-    <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button
-        id="randomEvent" data-t="rand"></button> <button id="saveCustom" data-t="custSave"></button></p>
     <details open>
         <summary data-t="randCfg"></summary>
         <div id="randomCfg"></div>
@@ -620,7 +740,26 @@
       <div id="events"></div>
   </details>
 
-  <details open>
+  <details>
+    <summary><b data-t="cust"></b></summary>
+    <fieldset id="composerField">
+      <div id="customButtons"></div>
+      <div id="customQueue"></div>
+      <p><button id="fireCustom" data-t="fire"></button> <button id="clearCustom" data-t="custClear"></button> <button id="saveCustom" data-t="custSave"></button></p>
+    </fieldset>
+  </details>
+
+  <details>
+    <summary><b data-t="needsh"></b> <button id="openNeedEditor" data-t="needAdd" style="float:right"></button></summary>
+    <div id="needsList"></div>
+  </details>
+
+  <details>
+    <summary><b data-t="besth"></b> <button id="openArchEditor" data-t="archAdd" style="float:right"></button></summary>
+    <div id="bestiary"></div>
+  </details>
+
+  <details>
     <summary><b data-t="parh"></b></summary>
     <div id="params"></div>
   </details>
@@ -628,19 +767,21 @@
 
   <div id="main">
   <header>
-    <button id="drawerbtn" style="float:left;margin-right:6px" aria-expanded="true"
-      title="Editor">☰</button>
-    <button id="refs" style="float:right;margin-left:6px" aria-label="References / Prameny"
-      title="References / Prameny">📑</button>
-    <button id="lang" style="float:right" aria-label="Language / Jazyk" title="Language / Jazyk">🌐</button>
+    <button id="drawerbtn" aria-expanded="true" aria-controls="drawer" title="Editor">
+      <span class="dbIcon" aria-hidden="true">▤</span><span class="dbLabel" data-t="editor"></span><span class="dbChev" aria-hidden="true">›</span>
+    </button>
     <h1 data-t="title"></h1>
+    <button id="refs" aria-label="References / Prameny" title="References / Prameny">📑</button>
+    <button id="lang" aria-label="Language / Jazyk" title="Language / Jazyk">🌐</button>
     <p><button id="pause"></button> <button id="reset" data-t="reset"></button></p>
   </header>
 
   <section>
     <canvas id="timeline" role="img"></canvas>
-    <b data-t="logh"></b>
-    <div id="eventLog"></div>
+    <details>
+      <summary><b data-t="logh"></b></summary>
+      <div id="eventLog"></div>
+    </details>
   </section>
 
   <div class="columns">
@@ -655,16 +796,6 @@
         <summary data-t="memh"></summary>
         <div id="memoryList"></div>
       </details>
-      <details>
-        <summary data-t="besth"></summary>
-        <p><button id="openArchEditor" data-t="archAdd"></button></p>
-        <div id="bestiary"></div>
-      </details>
-      <details>
-        <summary data-t="needsh"></summary>
-        <p><button id="openNeedEditor" data-t="needAdd"></button></p>
-        <div id="needsList"></div>
-      </details>
     </section>
     <section>
       <canvas id="moodPlane" role="img" data-a="plane"></canvas>
@@ -672,9 +803,8 @@
       <h3 id="behaviourLabel" style="text-align:center;margin:4px"></h3>
       <p id="status" aria-live="polite" style="text-align:center;margin:4px"></p>
       <canvas id="gaugeDominance" class="gauge" role="img" data-a="domg"></canvas>
-      <canvas id="gaugeHunger" class="gauge" role="img" data-a="hung"></canvas>
+      <div id="needGauges"></div>
       <canvas id="gaugeHealth" class="gauge" role="img" data-a="hltg"></canvas>
-      <div id="customNeedGauges"></div>
     </section>
   </div>
   </div><!-- /#main -->
@@ -764,7 +894,7 @@
                                         buildCustomEventComposer, buildEventGrid, build,
                                         TICK_REAL_S, TICK_SIM_MIN, PULSE_LIFE, fmtLife,
                                         renderCustomQueue, + onclick handlers for
-                                        fireCustom / clearCustom / randomEvent / pause /
+                                        fireCustom / clearCustom / pause /
                                         reset / drawerbtn / lang / timeline-hover)
        17. References modal           (renderRefs, + onclick handlers for refs / arch / need
                                         modals + archCreate + saveCustom
@@ -795,10 +925,12 @@
     const T = {
       en: {
         title: 'Mood bench',
+        editor: 'Editor',
+        editor: 'Editor',
         val: 'Valence', aro: 'Arousal', dom: 'Dominance', hun: 'Hunger meter', hlt: 'Health', slp: 'Sleep pressure', base: 'base',
         varh: 'Variables', vars: 'Show or hide the variable panel', logh: 'Recent events', logEmpty: 'No events yet.',
         note: 'Dashed = baseline. Numbered tags on the chart are color-coded by event group (red = threat, orange = food, pink = social, slate = env, brown = body, purple = sleep) — hover one for the event names. Top strip = behaviour. Arousal includes the body-clock offset. Boxes choose which lines to draw.',
-        worldh: 'Environment', evh: 'All events', parh: 'Parameters', cust: 'Custom event',
+        worldh: 'Environment', evh: 'Events', parh: 'Parameters', cust: 'Custom event composer',
         wopt: 'Clock, light and rhythm', temph: 'Temperament',
         surrEmpty: 'Nothing in view.',
         memh: 'Memory', memEmpty: 'No memories yet.',
@@ -810,7 +942,7 @@
         randCfg: 'Random event rates', randChanceTip: 'Chance per sim-hour for this event to fire (0 = never). The global rate slider multiplies all of these. (1 sim-hour = 20 ticks.)',
         randTriggerTip: 'Fire this event now (bypasses the chance roll and the when-gate).',
         archSize: 'Size', archColor: 'Color', archShape: 'Shape', archUT: 'Outcome',
-        needsh: 'Needs', needAdd: 'Add need', needCreate: 'Create', needDesc: 'Add a custom need. It decays like hunger (its own rate slider), pushes mood via needMood, and counts toward desperation. Custom needs appear in the Create-event form and get their own gauge.',
+        needsh: 'Needs', needAdd: 'Add need', needCreate: 'Create', needTune: 'Tune', needDesc: 'Add a custom need. It decays like hunger (its own rate slider), pushes mood via needMood, and counts toward desperation. Custom needs appear in the Create-event form and get their own gauge. To re-add a deleted builtin need (e.g. hunger), enter its key in the Add-need form.',
         needKey: 'key', needLabelField: 'label', needColor: 'color', needDecay: 'decay rate', needMoodW: 'mood weight', needDesper: 'desper floor',
         needDelete: 'Delete', needBuiltin: 'built-in', needSeed: '0.8',
         needLabel: { h: 'hunger' },
@@ -823,8 +955,8 @@
           shape: { round: 'round', angular: 'angular', animal: 'animal', plant: 'plant' }
         },
         fire: 'Fire custom event', rand: 'Random preset', pause: 'Pause', resume: 'Resume', reset: 'Reset',
-        custClear: 'Clear queue', custEmpty: 'No spikes queued. Click + to add one, then adjust its amp and τ inline.',
-        custSave: 'Save event', custSavePrompt: 'Name this event:', custSaveEmpty: 'Compose at least one pulse first.', custSaveExists: 'An event with that name already exists.', custSaveDone: 'Saved — see it under Custom events below.',
+        custClear: 'Clear queue', custEmpty: 'No custom events currently added.',
+        custSave: 'Save event', custSavePrompt: 'Name this event:', custSaveEmpty: 'Compose at least one pulse first.', custSaveExists: 'An event with that name already exists.', custSaveDone: 'Saved — see it under Custom events below.', custFxTitle: 'Effects',
         custAmp: 'amp', custTau: 'τ',
         custAddFmt: 'Add {dim} pulse',   // button text for the per-dimension add buttons ("spike" suggests up-only; "pulse" is direction-neutral and matches the codebase terminology)
         refsh: 'Papers used in this model', refsi: 'Each paper below is cited inline in the code or underlies a named concept. They are grouped by topic — Affect structure (VAD), Learning & memory, Two-process sleep, Sleep loss & affect, Temperament — so the list stays navigable as it grows. The “where” line on each entry points at the code that implements the idea.',
@@ -920,7 +1052,7 @@
         gh: 'Health', gb: 'Behaviour', gl: 'Learning', gpv: 'Preview pulses',
         p: {
           decay: 'Decay rate', plen: 'Event length ×', drift: 'Baseline drift rate', pers: 'Valence sensitivity', thr: 'Depletion threshold', depfactor: 'Depletion factor',
-          hrate: 'Hunger loss rate', hmood: 'Hunger pull on mood', foodQuality: 'Food quality',
+          hrate: 'Hunger loss rate', hmood: 'Hunger pull on mood',
           sleep: 'Sleep needs arousal below', krise: 'Sleep pressure rise (per h)', kdecay: 'Sleep pressure decay (per h)', camp: 'Body-clock gate swing', cycle: 'Sleep cycle length (min)', expect: 'Expected sleep (h/day)', nightlen: 'Night length for cycle (h)', repair: 'Sleep mood repair', wakeCooldown: 'Wake cooldown (ticks)',
           speed: 'Sim speed', hour: 'Hour of day', amp: 'Circadian arousal strength', tau: 'Free-running period (h)', ent: 'Light entrainment', rate: 'Random event rate ×',
           sleepHeal: 'Sleep heal rate', sickSleepHeal: 'Sick-sleep heal rate', illDrain: 'Illness drain rate',
@@ -936,7 +1068,6 @@
           depfactor: 'Per-tick multiplier on baseline arousal and dominance while depleted. Lower = depletion drains faster. (Renamed from "dep" to disambiguate from sleep deprivation s.dep.)',
           hrate: 'Hunger meter lost per tick at multiplier 1 (full to empty in ~200 s at the default).',
           hmood: 'How hard an empty hunger meter pushes valence down and arousal up.',
-          foodQuality: 'How much the food source refills hunger when the agent eats. 0 = empty calories, 1 = maximally nutritious.',
           sleep: 'Agent can only fall asleep while displayed arousal is below this threshold.',
           krise: 'Sleep pressure rise rate while awake (per sim hour).',
           kdecay: 'Sleep pressure decay rate while asleep (per sim hour).',
@@ -969,7 +1100,7 @@
         val: 'Valence', aro: 'Aktivace', dom: 'Dominance', hun: 'Ukazatel hladu', hlt: 'Zdraví', slp: 'Potřeba spánku', base: 'základ',
         varh: 'Proměnné', vars: 'Zobrazit nebo skrýt panel proměnných', logh: 'Poslední události', logEmpty: 'Zatím žádné události.',
         note: 'Přerušovaně = základ. Číslované štítky = události (které, říká seznam pod grafem; zkus i najet myší). Horní pruh = chování. Aktivace zahrnuje posun podle tělesných hodin. Zaškrtávátky vybereš, které čáry se kreslí.',
-        worldh: 'Prostředí', evh: 'Všechny události', parh: 'Parametry', cust: 'Vlastní událost',
+        worldh: 'Prostředí', evh: 'Události', parh: 'Parametry', cust: 'Skladatel vlastní události',
         wopt: 'Hodiny, světlo a rytmus', temph: 'Temperament',
         surrEmpty: 'Nic v dohledu.',
         memh: 'Paměť', memEmpty: 'Zatím žádné vzpomínky.',
@@ -981,7 +1112,7 @@
         randCfg: 'Míry náhodných událostí', randChanceTip: 'Šance za sim-hodinu na spuštění této události (0 = nikdy). Globální jezdec „rate" všechny násobí. (1 sim-hodina = 20 ticků.)',
         randTriggerTip: 'Spustit tuto událost nyní (ignoruje náhodu i podmínku when).',
         archSize: 'Velikost', archColor: 'Barva', archShape: 'Tvar', archUT: 'Výsledek',
-        needsh: 'Potřeby', needAdd: 'Přidat potřebu', needCreate: 'Vytvořit', needDesc: 'Přidat vlastní potřebu. Chová se jako hlad (vlastní jezdec úbytku), tlačí náladu přes needMood a započítává se do desperace. Vlastní potřeby se objeví ve formuláři vytváření události a dostanou vlastní ukazatel.',
+        needsh: 'Potřeby', needAdd: 'Přidat potřebu', needCreate: 'Vytvořit', needTune: 'Ladit', needDesc: 'Přidat vlastní potřebu. Chová se jako hlad (vlastní jezdec úbytku), tlačí náladu přes needMood a započítává se do desperace. Vlastní potřeby se objeví ve formuláři vytváření události a dostanou vlastní ukazatel. Smazanou vestavěnou potřebu (např. hlad) znovu přidáš zadáním jejího klíče do formuláře.',
         needKey: 'klíč', needLabelField: 'štítek', needColor: 'barva', needDecay: 'rychlost úbytku', needMoodW: 'váha nálady', needDesper: 'práh desperace',
         needDelete: 'Smazat', needBuiltin: 'vestavěná', needSeed: '0,8',
         needLabel: { h: 'hlad' },
@@ -994,8 +1125,8 @@
           shape: { round: 'kulaté', angular: 'hranaté', animal: 'zvíře', plant: 'rostlina' }
         },
         fire: 'Spustit vlastní událost', rand: 'Náhodná šablona', pause: 'Pauza', resume: 'Pokračovat', reset: 'Resetovat',
-        custClear: 'Vyčistit frontu', custEmpty: 'Ve frontě nejsou žádné pulzy. Klikni na + pro přidání, pak uprav amp a τ přímo v položce.',
-        custSave: 'Uložit událost', custSavePrompt: 'Pojmenuj tuto událost:', custSaveEmpty: 'Nejprve přidej aspoň jeden pulz.', custSaveExists: 'Událost s tímto názvem už existuje.', custSaveDone: 'Uloženo — najdeš ji níže pod Vlastní události.',
+        custClear: 'Vyčistit frontu', custEmpty: 'Zatím nebyly přidány žádné vlastní události.',
+        custSave: 'Uložit událost', custSavePrompt: 'Pojmenuj tuto událost:', custSaveEmpty: 'Nejprve přidej aspoň jeden pulz.', custSaveExists: 'Událost s tímto názvem už existuje.', custSaveDone: 'Uloženo — najdeš ji níže pod Vlastní události.', custFxTitle: 'Efekty',
         custAmp: 'amp', custTau: 'τ',
         custAddFmt: 'Přidat pulz {dim}',   // text tlačítka pro přidání podle dimenze ("spike" navrhuje pouze nahoru; "pulz" je směrově neutrální a odpovídá terminologii v kódu)
         refsh: 'Prameny použité v modelu', refsi: 'Každý z následujících článků je citován přímo v kódu nebo je základem některého pojmenovaného konceptu. Jsou seskupeny podle tématu — Struktura afektu (VAD), Učení a paměť, Dvouprocesový spánek, Ztráta spánku a afekt, Temperament — aby seznam zůstal přehledný i při dalším růstu. Řádek „where“ u každého záznamu ukazuje na kód, který danou myšlenku implementuje.',
@@ -1098,7 +1229,7 @@
         gh: 'Zdraví', gb: 'Chování', gl: 'Učení', gpv: 'Předstihové pulzy',
         p: {
           decay: 'Rychlost doznívání', plen: 'Délka dopadu události ×', drift: 'Rychlost posunu základu', pers: 'Citlivost valence', thr: 'Práh vyčerpání', depfactor: 'Faktor vyčerpání',
-          hrate: 'Ubývání sytosti', hmood: 'Vliv hladu na náladu', foodQuality: 'Kvalita potravy',
+          hrate: 'Ubývání sytosti', hmood: 'Vliv hladu na náladu',
           sleep: 'Spánek vyžaduje aktivaci pod', krise: 'Nárůst potřeby spánku (za h)', kdecay: 'Pokles potřeby spánku (za h)', camp: 'Rozkmit prahů tělesných hodin', cycle: 'Délka spánkového cyklu (min)', expect: 'Očekávaný spánek (h/den)', nightlen: 'Délka noci pro cyklus (h)', repair: 'Obnova nálady spánkem', wakeCooldown: 'Cooldown po probuzení (ticků)',
           speed: 'Rychlost simulace', hour: 'Hodina dne', amp: 'Síla denního rytmu aktivace', tau: 'Volně běžící perioda (h)', ent: 'Synchronizace světlem', rate: 'Četnost náhodných událostí ×',
           sleepHeal: 'Hojení spánkem', sickSleepHeal: 'Hojení spánkem při nemoci', illDrain: 'Úbytek při nemoci',
@@ -1114,7 +1245,6 @@
           depfactor: 'Multiplikátor za tick na základní aktivaci a dominanci při vyčerpání. Nižší = vyčerpání odčerpává rychleji. (Přejmenováno z „dep“ pro odlišení od spánkové deprivace s.dep.)',
           hrate: 'Úbytek sytosti za tick při multiplikátoru 1 (plná → prázdná za ~200 s při výchozím).',
           hmood: 'Jak silně prázdný hlad stlačuje valenci dolů a zvyšuje aktivaci.',
-          foodQuality: 'Jak moc zdroj potravy doplňuje hlad, když agent jí. 0 = prázdné kalorie, 1 = maximálně výživné.',
           sleep: 'Agent může usnout pouze tehdy, když zobrazená aktivace je pod tímto prahem.',
           krise: 'Rychlost nárůstu spánkového tlaku během bdění (za simulovanou hodinu).',
           kdecay: 'Rychlost poklesu spánkového tlaku během spánku (za simulovanou hodinu).',
@@ -1167,7 +1297,6 @@
       // -- needs --
       hrate: .0005,  // hunger meter lost per tick at multiplier 1 (full to empty in ~200 s)
       hmood: 1,      // how hard an empty hunger meter pushes valence down and arousal up
-      foodQuality: .6,  // how much the food source refills hunger when the agent eats (was a world control, now a parameter)
       // -- sleep --
       sleep: .2,     // the agent can only fall asleep while arousal is below this
       krise: .06,    // Process S rise rate while awake (per sim hour)
@@ -1207,7 +1336,7 @@
     };
     // SLIDERS = slider settings: [key, min, max, step, group]. Groups: 0 mood, 1 needs, 2 sleep, 3 environment, 4 health, 5 behaviour, 7 learning, 8 preview pulses.
     const SLIDERS = [['decay', .002, .1, .002, 0], ['plen', .25, 4, .25, 0], ['drift', 0, .02, .0005, 0], ['pers', .2, 2, .05, 0], ['thr', -.9, 0, .05, 0], ['depfactor', .98, 1, .0005, 0],
-    ['hrate', .0001, .003, .0001, 1], ['hmood', 0, 3, .1, 1], ['foodQuality', 0, 1, .05, 1],
+    ['hrate', .0001, .003, .0001, 1], ['hmood', 0, 3, .1, 1],
     ['sleep', -.5, 1, .05, 2], ['krise', .01, .3, .005, 2], ['kdecay', .02, .6, .01, 2], ['camp', 0, .3, .01, 2], ['amp', 0, .6, .05, 2], ['tau', 22, 26, .1, 2], ['ent', 0, 1, .05, 2], ['cycle', 20, 240, 10, 2], ['expect', 4, 12, .5, 2], ['nightlen', 4, 12, .5, 2], ['repair', 0, .03, .001, 2], ['wakeCooldown', 0, 100, 5, 2],
     ['speed', .05, 5, .05, 3], ['hour', 0, 23.95, .05, 3], ['rate', 0, 3, .1, 3],
     ['sleepHeal', 0, .02, .001, 4], ['sickSleepHeal', 0, .005, .0001, 4], ['illDrain', 0, .005, .0001, 4],
@@ -1250,15 +1379,24 @@
       { key: 'h', label: 'hunger', color: '#3d9a2a', decayParam: 'hrate', moodWeight: 1, desperFloor: .3, builtin: true },
     ];
     const NEEDS_KEY = 'moodbench_customNeeds_v1';
+    const HIDDEN_BUILTIN_NEEDS_KEY = 'moodbench_hiddenBuiltinNeeds_v1';
     let loadCustomNeeds = () => { try { return JSON.parse(localStorage.getItem(NEEDS_KEY) || '[]'); } catch (e) { return []; } };
     let saveCustomNeeds = (arr) => { try { localStorage.setItem(NEEDS_KEY, JSON.stringify(arr)); } catch (e) { } };
+    let loadHiddenBuiltinNeeds = () => { try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_BUILTIN_NEEDS_KEY) || '[]')); } catch (e) { return new Set(); } };
+    let saveHiddenBuiltinNeeds = (set) => { try { localStorage.setItem(HIDDEN_BUILTIN_NEEDS_KEY, JSON.stringify([...set])); } catch (e) { } };
     let CUSTOM_NEEDS = loadCustomNeeds();
-    let NEEDS = [...BUILTIN_NEEDS, ...CUSTOM_NEEDS];
-    const syncNeeds = () => { NEEDS = [...BUILTIN_NEEDS, ...CUSTOM_NEEDS]; };
+    let HIDDEN_BUILTIN_NEEDS = loadHiddenBuiltinNeeds();
+    let NEEDS = [...BUILTIN_NEEDS.filter(n => !HIDDEN_BUILTIN_NEEDS.has(n.key)), ...CUSTOM_NEEDS];
+    // syncNeeds rebuilds NEEDS from the builtin registry (minus any hidden/deleted builtins) + custom needs.
+    const syncNeeds = () => { NEEDS = [...BUILTIN_NEEDS.filter(n => !HIDDEN_BUILTIN_NEEDS.has(n.key)), ...CUSTOM_NEEDS]; };
+    // restoreBuiltinNeed: un-hide a builtin need that was previously deleted (e.g. via the Add-need modal).
+    const restoreBuiltinNeed = (key) => { HIDDEN_BUILTIN_NEEDS.delete(key); saveHiddenBuiltinNeeds(HIDDEN_BUILTIN_NEEDS); syncNeeds(); };
     const hurt = m => Math.max(0, K.needFloor - m) / K.needFloor;   // mood-coupling shape: 0 above needFloor, 1 at empty
     const desperHurt = (m, floor) => Math.max(0, Math.min(1, (floor - m) / floor));  // desperation shape: 0 above floor, 1 at empty
-    const needMood = c => NEEDS.reduce((sum, n) => sum + n.moodWeight * hurt(c[n.key]), 0);
-    const desperation = c => Math.max(0, ...NEEDS.map(n => desperHurt(c[n.key], n.desperFloor)));
+    // needMood / desperation read c[key] per registered need. A missing field (undefined) is treated as
+    // "full" (1.0 = no deficit) so a need removed mid-session can't poison the aggregators with NaN.
+    const needMood = c => NEEDS.reduce((sum, n) => sum + n.moodWeight * hurt(c[n.key] ?? 1), 0);
+    const desperation = c => Math.max(0, ...NEEDS.map(n => desperHurt(c[n.key] ?? 1, n.desperFloor)));
     const needLabel = n => t.needLabel?.[n.key] || n.label || n.key;
     // drainNeed: called by the environment to drain a need (e.g. energy via cold, sleep-dep burn).
     // Today no archetype uses it — the seam exists for when energy becomes a registered need.
@@ -1285,7 +1423,7 @@
     const EXTRA = {
       rustle: { amb: true, hide: true },   // hidden from grid. Textbook ambiguous stimulus (Mendl 2010 Table 1) — manual/custom only.
       ate_food: {
-        food: .6,                    // refills hunger × P.foodQuality on fire
+        needs: { h: .6 },                 // refills hunger by .6 on fire (saturation lives on the event, 1:1 — no global foodQuality)
         pulses: [{ dim: 'v', amp: .7, tau: 5 }, { dim: 'v', amp: .2, tau: 200 }, { dim: 'a', amp: -.2, tau: 10 }, { dim: 'd', amp: .3, tau: 50 }]
       },   // a joy spike, a long satisfied tail, a quick calm-down
       predator_attack: {
@@ -1782,11 +1920,12 @@
       };   // hour — world state, not parameters
       deriveWorld();   // immediately recompute W.light + W.temp from the (just-reset) hour, so the gauges are consistent even while paused (no tick yet)
       S = {
-        v: HOME.v, a: HOME.a, d: HOME.d, bv: HOME.v, ba: HOME.a, bd: HOME.d, h: .8, hp: 1, ill: false, sp: .35, ct: W.hour,
+        v: HOME.v, a: HOME.a, d: HOME.d, bv: HOME.v, ba: HOME.a, bd: HOME.d, hp: 1, ill: false, sp: .35, ct: W.hour,
         asleep: false, tin: 0, ut: 0, slept: P.expect, dbt: 0, dep: 0, cool: 0, led: false, approachTimer: 0
       };
-      // Seed any custom needs at .8 (same start as hunger). Builtin 'h' is already in the literal above.
-      for (const n of CUSTOM_NEEDS) if (S[n.key] === undefined) S[n.key] = .8;
+      // Seed every registered need (builtin hunger included when present) at .8. Needs removed from the
+      // registry get no field — readers treat a missing need as "full" (1.0 = no deficit) via ?? 1 guards.
+      for (const n of NEEDS) if (S[n.key] === undefined) S[n.key] = .8;
       behaviour = 'idle';
       H = []; N = 0; M = []; Q = []; LOG = []; evSeq = 0; PULSES = [];
       customQueue.length = 0;   // also wipe the staged custom-event pulses so Reset returns a clean slate
@@ -1856,7 +1995,7 @@
     // Compounds with the base magnitude salience (max of |impacts| or |pulse amps|) in fireEvents.
     function needMult(g, s, W) {
       switch (g) {
-        case 'food': return 1 + (1 - s.h) * 0.5;                         // food more salient when hungry (up to 1.5× at empty)
+        case 'food': return 1 + (1 - (s.h ?? 1)) * 0.5;                // food more salient when hungry (up to 1.5× at empty); missing hunger = full = neutral
         case 'body': return 1 + (s.ill ? 0.3 : 0) + (1 - s.hp) * 0.3;   // body events (pain, illness, recovery) more salient when sick / low HP
         case 'social': return 1 + (W.conspecifics === 0 ? 0.3 : 0);       // social events more salient when isolated
         case 'sleep': return 1 + s.dep * 0.3;                            // sleep transitions more salient when sleep-deprived
@@ -1912,10 +2051,11 @@
           if (p.dim === 'd' && amp > 0) amp *= domScale;
           PULSES.push({ dim: p.dim, amp, tau: p.tau, age: -(p.delay ?? 0) });
         }
-        if (e.food) s.h = clamp01(s.h + e.food * P.foodQuality);   // legacy path (saved events pre-NEEDS registry)
+        // Legacy e.food (pre-NEEDS-registry saved events) → treat as a hunger refill of e.food, 1:1.
+        if (e.food && s.h !== undefined) s.h = clamp01(s.h + e.food);
         if (e.needs) for (const k in e.needs) {
-          const quality = k === 'h' ? P.foodQuality : 1;            // hunger respects foodQuality; custom needs refill 1:1
-          s[k] = clamp01(s[k] + e.needs[k] * quality);
+          if (s[k] === undefined) continue;                              // need was removed mid-session — skip silently
+          s[k] = clamp01(s[k] + e.needs[k]);                              // saturation is on the event itself, 1:1 (no global quality multiplier)
         }
         if (e.hp) s.hp = clamp01(s.hp + e.hp);
         if (e.act) e.act(W, s);
@@ -2029,7 +2169,10 @@
     // Sleep / wake decision and the NREM / REM cycle
     function stepSleepWake(s, body) {
       // wp = wake pressure: positive means "wake up now"
-      const wp = (body.lo - s.sp) * .5 + Math.max(0, body.ea - P.sleep) * .3 + (1 - s.h) * .2;   // [need for sleep gone] + [alarm: arousal too high] + [hunger] — TODO: switch to desperation(s) once wake-pressure tuning is revisited (raw emptiness vs desperHurt differ above .3)
+      // wp = wake pressure: positive means "wake up now". The third term is the agent's most-deprived need
+      // (desperation, 0..1) — whichever need is hurting most drives wake pressure. With no needs registered
+      // desperation() = 0, so this contributes nothing. (Previously a hunger-only `(1 - s.h)` term.)
+      const wp = (body.lo - s.sp) * .5 + Math.max(0, body.ea - P.sleep) * .3 + desperation(s) * .2;
       if (!s.asleep) {
         if (s.sp >= body.up && body.ea < P.sleep && wp <= 0 && !s.cool) startSleep();   // tired enough, calm enough, and nothing would wake it straight away
       } else if (wp > 0) {
@@ -2051,7 +2194,7 @@
     // (every P.decideevery ticks).
     function chooseBehaviour(s, m, ea) {
       const c = {
-        h: s.h, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
+        h: s.h ?? 1, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
         state: behaviour, asleep: s.asleep, temperament: TEMP, world: W
       };
       decide(c);
@@ -2061,7 +2204,7 @@
     // after each firing row for the later rows to see. Runs every tick regardless of sleep/decide schedule.
     function chooseRandomEvents(s, m, ea) {
       const c = {
-        h: s.h, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
+        h: s.h ?? 1, hp: s.hp, ill: s.ill, v: m.v, a: ea, d: m.d, sat: Math.min(1, .7 * (1 + .3 * s.dep)),
         state: behaviour, asleep: s.asleep, temperament: TEMP, world: W
       };
       for (const r of RANDOM) {
@@ -2073,33 +2216,33 @@
     }
 
     function record(s, m, body) {
-      // Builtin series + per-custom-need values. Custom needs are sparsely keyed (only their own state field),
-      // so a history point naturally omits any need that didn't exist when that point was recorded — older
-      // history just has no value for newer needs, and drawTimeline skips missing keys.
-      const entry = { v: m.v, a: body.ea, d: m.d, bv: s.bv, ba: clamp(s.ba + body.offset), bd: s.bd, h: s.h, hp: s.hp, sp: s.sp, b: behaviour };
-      for (const n of CUSTOM_NEEDS) entry[n.key] = s[n.key];
+      // Builtin non-need series + one field per registered need (builtin or custom). Needs are sparsely
+      // keyed, so a history point naturally omits any need that didn't exist when it was recorded — older
+      // history just has no value for newer/removed needs, and drawTimeline / readout skip missing keys.
+      const entry = { v: m.v, a: body.ea, d: m.d, bv: s.bv, ba: clamp(s.ba + body.offset), bd: s.bd, hp: s.hp, sp: s.sp, b: behaviour };
+      for (const n of NEEDS) entry[n.key] = s[n.key];
       H.push(entry);
       if (H.length > 600) H.shift();                                      // keep only the last 600 ticks
     }
 
     /* ============ Drawing ============ */
-    const COL = { v: '#14a39a', a: '#d99a00', d: '#8a63d2', h: '#3d9a2a', hp: '#b5651d', sp: '#888' };   // series colours (builtin). Custom needs add their colour at draw time via seriesColor().
+    const COL = { v: '#14a39a', a: '#d99a00', d: '#8a63d2', hp: '#b5651d', sp: '#888' };   // builtin NON-need series colours. Need colours come from each need object (see seriesColor).
     const GC = { threat: '#e04040', food: '#c9772b', social: '#d0488f', env: '#7a8a99', body: '#b5651d', sleep: '#4654d4', custom: '#666' };   // event group colours (for timeline tags + recent events chips). Sleep is blue-purple to distinguish from dominance line colour (#8a63d2).
-    // SER = builtin lines on the timeline: [key, text key]. Custom needs are appended at draw time via
-    // seriesList() so adding a need immediately makes it chartable (no redeclaration needed).
-    const SER = [['v', 'val'], ['a', 'aro'], ['d', 'dom'], ['h', 'hun'], ['sp', 'slp'], ['hp', 'hlt']];
-    let SHOW = { v: 1, a: 1, d: 0, h: 1, sp: 0, hp: 0 };   // let: custom needs add their own entries on first render
+    // SER = builtin NON-need lines on the timeline: [key, text key]. Need series are appended at draw time
+    // via seriesList() from NEEDS (so adding/removing a need — hunger included — immediately adds/removes
+    // its line + legend entry + gauge, with no hardcoded 'h' anywhere).
+    const SER = [['v', 'val'], ['a', 'aro'], ['d', 'dom'], ['sp', 'slp'], ['hp', 'hlt']];
+    let SHOW = { v: 1, a: 1, d: 0, sp: 0, hp: 0 };   // let: needs add their own entries on first render (hunger defaults on)
     const BASE_KEY = { v: 'bv', a: 'ba', d: 'bd' };   // which history field holds each line's baseline
-    const STRETCH = { h: 1, sp: 1, hp: 1 };     // these are 0..1, so they are stretched over the chart's -1..1 axis
-    // seriesList = the effective set of chartable series: builtin SER + one per custom need (0..1, stretched).
-    // Custom needs use their own colour and a label key of 'need_<key>' (so the i18n lookup in the variable
-    // panel falls back to the need's label via needLabel()).
-    const seriesList = () => [...SER, ...CUSTOM_NEEDS.map(n => [n.key, 'need_' + n.key])];
-    // seriesColor = colour for a series key. Builtin keys use COL; custom need keys use the need's own colour.
-    const seriesColor = k => COL[k] || (CUSTOM_NEEDS.find(n => n.key === k)?.color) || '#888';
-    // seriesStretch = whether a series is 0..1 (stretched to -1..1 for the chart axis). Builtin stretched
-    // series are h/sp/hp; every custom need is also 0..1 so it stretches too.
-    const seriesStretch = k => STRETCH[k] ? true : CUSTOM_NEEDS.some(n => n.key === k);
+    const STRETCH = { sp: 1, hp: 1 };     // builtin 0..1 series that stretch over the chart's -1..1 axis (needs stretch too — see seriesStretch)
+    // seriesList = the effective set of chartable series: builtin non-need SER + one per need (builtin or
+    // custom). A need's text key is 'need_<key>' so the i18n lookup in the variable panel falls back to
+    // the need's label via needLabel().
+    const seriesList = () => [...SER, ...NEEDS.map(n => [n.key, 'need_' + n.key])];
+    // seriesColor = colour for a series key. Builtin non-need keys use COL; need keys use the need's own colour.
+    const seriesColor = k => COL[k] || (NEEDS.find(n => n.key === k)?.color) || '#888';
+    // seriesStretch = whether a series is 0..1 (stretched to -1..1 for the chart axis). sp/hp + every need.
+    const seriesStretch = k => !!STRETCH[k] || NEEDS.some(n => n.key === k);
     let INK = '#000';   // INK = the page's text colour, re-read every frame so light/dark mode works
 
     // Prepare a canvas: match the screen's pixel ratio, clear it, reset every drawing setting. Returns [ctx, width, height].
@@ -2264,7 +2407,7 @@
       if (!L) { setText('#moodLabel', ''); setText('#behaviourLabel', ''); setText('#status', ''); return; }   // "nothing yet" e.g. just after Reset
       const p = H[L - 1], f = (v, b) => v.toFixed(2) + (b === undefined ? '' : ' (' + b.toFixed(2) + ')');   // baseline in compact parens, e.g. "-0.38"; baseline is also drawn as the dashed line on the chart
       for (const [k] of seriesList()) {
-        if (!(k in p)) continue;                                              // custom need didn't exist when this point was recorded
+        if (p[k] === undefined) continue;                                       // need didn't exist / had no value when this point was recorded
         setText('#value_' + k, f(p[k], BASE_KEY[k] && p[BASE_KEY[k]]));
       }
       setText('#sleepDebt', t.debt + ': ' + S.dbt.toFixed(1) + 'h');   // sleep debt (hours)
@@ -2272,6 +2415,15 @@
       setText('#moodLabel', Math.abs(p.v) < .15 && Math.abs(p.a) < .15 ? t.neutral : t.q[quad]);
       setText('#behaviourLabel', t.st[behaviour]); $('#behaviourLabel').style.color = ST[behaviour].col;
       setText('#status', [S.ill && t.sick, S.bv < P.thr && t.depl].filter(Boolean).join(' ') || t.hint);   // warnings first, otherwise the hint
+    }
+
+    // renderGauges = rebuild the #needGauges canvas set from the current NEEDS registry. Called on need
+    // add / delete (and on load) so the gauge row matches the need set exactly — hunger's gauge appears
+    // when hunger is present and disappears when it's removed. The frame loop draws into the canvases.
+    function renderGauges() {
+      const box = $('#needGauges');
+      if (!box) return;
+      box.innerHTML = NEEDS.map(n => `<canvas id="gaugeNeed_${n.key}" class="gauge" role="img"></canvas>`).join('');
     }
 
     /* ============ Main loop ============ */
@@ -2284,16 +2436,10 @@
       const p = H[H.length - 1] || S, level = bodyClock(S.ct);            // S also has d, h, hp and sp, so it stands in before the first tick
       drawTimeline(); drawMoodPlane();
       gauge('#gaugeDominance', t.dom, p.d, -1, 1, t.sb, t.dm, COL.d);
-      gauge('#gaugeHunger', t.hun, p.h, 0, 1, t.sv, t.fl, COL.h);
+      // Need gauges: one canvas per registered need (hunger included when present), rebuilt by renderGauges()
+      // whenever needs change. Each frame we just (re)draw into whatever canvases exist.
+      for (const n of NEEDS) gauge('#gaugeNeed_' + n.key, needLabel(n), S[n.key] ?? 0, 0, 1, t.sv, t.fl, n.color);
       gauge('#gaugeHealth', t.hlt, p.hp, 0, 1, t.hl0, t.hl1, COL.hp);
-      // Custom-need gauges: one canvas per custom need, rebuilt each frame (cheap — usually 0–2 of them).
-      // Builtin 'h' already has its own canvas above, so it's skipped here.
-      const cng = $('#customNeedGauges');
-      if (cng) {
-        const customs = NEEDS.filter(n => !n.builtin);
-        cng.innerHTML = customs.map(n => `<canvas id="gaugeNeed_${n.key}" class="gauge" role="img"></canvas>`).join('');
-        for (const n of customs) gauge('#gaugeNeed_' + n.key, needLabel(n), S[n.key] ?? 0, 0, 1, t.sv, t.fl, n.color);
-      }
       gauge('#gaugeLight', t.light, W.light, 0, 1, t.dark, t.bright, '#e0b020');
       gauge('#gaugeSleep', t.slp, p.sp, 0, 1, t.rest, t.tired, COL.sp, [LOW + P.camp * level, UP + P.camp * level]);   // black lines = wake and sleep thresholds
       gauge('#gaugeTemp', t.tempg, W.temp, -10, 40, t.cold, t.hot, '#d97740', [K.tempIdeal]);   // ambient temperature with comfort mark at K.tempIdeal (20°C)
@@ -2363,12 +2509,14 @@
 
     // The change event is delegated on #variableList in wireUI() — no per-element attachment.
     function buildVariablePanel() {
-      // Builtin series use t[textkey] for the label; custom needs use needLabel(n) and their own colour.
-      // Custom needs default to SHOW off so they don't clutter the chart until the user opts in.
+      // Builtin non-need series use t[textkey] for the label; need series (builtin hunger + custom) use
+      // needLabel(n) and the need's own colour. Needs default to SHOW on for builtin hunger, off otherwise,
+      // so the chart isn't cluttered — the user opts in per need.
       const rows = seriesList().map(([k, n]) => {
-        const custom = CUSTOM_NEEDS.find(x => x.key === k);
-        const label = custom ? needLabel(custom) : t[n];
+        const need = NEEDS.find(x => x.key === k);
+        const label = need ? needLabel(need) : t[n];
         const col = seriesColor(k);
+        if (need && SHOW[k] === undefined) SHOW[k] = need.builtin ? 1 : 0;   // first-seen default
         return `<label><input type="checkbox" data-s="${k}" ${SHOW[k] ? 'checked' : ''}> <span style="color:${col}">\u25a0</span> ${label} <b id="value_${k}"></b></label><br>`;
       }).join('');
       $('#variableList').innerHTML = rows;
@@ -2380,7 +2528,8 @@
     // the parameter tree (e.g. on language change) doesn't re-attach N listeners.
     function buildParameterTree() {
       const root = $('#params'); root.innerHTML = '';
-      [['gm', 0], ['gn', 1], ['gs', 2], ['gw', 3], ['gh', 4], ['gb', 5], ['gl', 7], ['gpv', 8]].forEach(([title, group]) => {
+      // Group 1 (needs: hrate, hmood) lives in the Needs drawer now — configured per-need there.
+      [['gm', 0], ['gs', 2], ['gw', 3], ['gh', 4], ['gb', 5], ['gl', 7], ['gpv', 8]].forEach(([title, group]) => {
         const branch = addBranch(root, t[title]);
         SLIDERS.filter(row => row[4] === group).forEach(([k, min, max, step]) => {
           addSlider(branch, k, t.p[k], min, max, step, getParam(k));
@@ -2458,7 +2607,7 @@
           button.dataset.custIdx = i;
           const sideFx = [];
           if (e.hp) sideFx.push(`hp ${sign(e.hp)}`);
-          if (e.food) sideFx.push(`${t.custEventFood} ${e.food}`);                 // legacy
+          if (e.food) { const hn = NEEDS.find(x => x.key === 'h'); sideFx.push(`${hn ? needLabel(hn) : t.custEventFood} ${e.food}`); }   // legacy e.food (old saved events) — always meant hunger
           if (e.needs) for (const k in e.needs) {
             const n = NEEDS.find(x => x.key === k);
             sideFx.push(`${n ? needLabel(n) : k} ${e.needs[k]}`);
@@ -2559,27 +2708,34 @@
   `;
     }
 
-    // renderNeedsList = the read-only list of needs in the Needs drawer. Each row shows the need's colour,
-    // label, key, and its tuning (decay rate, mood weight, desper floor). Custom needs get a Delete button;
-    // builtin needs are marked "built-in" and can't be removed. The decay/mood/desper values shown are the
-    // current P/NEEDS values (decay comes from P[decayParam] — i.e. the slider — so editing the slider
-    // changes what's displayed on next render).
+    // renderNeedsList = the Needs drawer. Each need is a compact row (swatch + label + key + live value +
+    // ⚙ gear + × delete) mirroring the bestiary pattern. ⚙ toggles a hidden inline .needCfg table with
+    // the need's tuning sliders (decay, mood weight, desper floor); hunger additionally owns the global
+    // hmood slider on its config table. All needs are deletable (hunger included).
+    // input on .needRow is delegated on #needsList in wireUI(); ⚙ / × clicks are delegated there too.
     function renderNeedsList() {
       const box = $('#needsList');
       if (!box) return;
-      const colorChoices = ['#3d9a2a', '#1f77b4', '#d62728', '#9467bd', '#ff7f0e', '#17becf', '#8c564b', '#e377c2'];
       box.innerHTML = NEEDS.map((n, i) => {
         const val = S[n.key] ?? 0;
         const decayVal = P[n.decayParam] ?? 0;
-        return `<div class="needRow" style="display:flex;align-items:center;gap:6px;font-size:.85em;padding:3px 0">
-          <span style="display:inline-block;width:12px;height:12px;background:${n.color};border-radius:2px"></span>
+        // Hunger carries the global mood-coupling multiplier (hmood) on its config table — it scales the
+        // weighted-sum needMood(s) across all needs, so it lives with the canonical need rather than a slider bank.
+        const hungerExtra = n.key === 'h' ? `
+          <tr><td>${t.p.hmood}</td><td><input type="range" class="nsl_param" data-param="hmood" min="0" max="3" step=".1" value="${P.hmood}"><output>${P.hmood.toFixed(2)}</output></td></tr>` : '';
+        return `<div class="needItem">
+          <span class="needSwatch" style="background:${n.color}"></span>
           <b>${needLabel(n)}</b>
           <small style="opacity:.6">${n.key}</small>
-          <small style="margin-left:auto">${t.needDecay}: ${decayVal.toFixed(4)}</small>
-          <small>${t.needMoodW}: ${n.moodWeight}</small>
-          <small>${t.needDesper}: ${n.desperFloor}</small>
-          <small style="opacity:.7">= ${val.toFixed(2)}</small>
-          ${n.builtin ? `<small style="opacity:.5">[${t.needBuiltin}]</small>` : `<button class="needDel" data-need-del-idx="${i}" title="${t.needDelete}">×</button>`}
+          <small style="opacity:.7;margin-left:auto">= ${val.toFixed(2)}</small>
+          <button class="needCfgBtn" data-need-idx="${i}" title="${t.needTune ?? '⚙'}">⚙</button>
+          <button class="needDel" data-need-del-idx="${i}" title="${t.needDelete}">×</button>
+          <div class="needCfg" hidden><table><tbody>
+            <tr><td>${t.needDecay}</td><td><input type="range" class="nsl_decay" data-need-idx="${i}" min=".0001" max=".003" step=".0001" value="${decayVal}"><output>${decayVal.toFixed(4)}</output></td></tr>
+            <tr><td>${t.needMoodW}</td><td><input type="range" class="nsl_mood" data-need-idx="${i}" min="0" max="3" step=".1" value="${n.moodWeight}"><output>${n.moodWeight.toFixed(2)}</output></td></tr>
+            <tr><td>${t.needDesper}</td><td><input type="range" class="nsl_desp" data-need-idx="${i}" min="0" max="1" step=".05" value="${n.desperFloor}"><output>${n.desperFloor.toFixed(2)}</output></td></tr>
+            ${hungerExtra}
+          </tbody></table></div>
         </div>`;
       }).join('');
     }
@@ -2604,6 +2760,7 @@
     function renderNeeds() {
       renderNeedsList();
       buildNeedForm();
+      renderGauges();
     }
 
     function renderMemory() {
@@ -2652,31 +2809,34 @@
     function renderCustomQueue() {
       const q = $('#customQueue');
       if (!q) return;
-      // Side-effect sliders: HP + one per registered need (including custom needs). These stage into customFx
-      // and are read by Fire / Save. Always rendered (even with an empty pulse queue) so you can compose a
-      // pure side-effect event (e.g. "Drink Water" with only a thirst refill). Delegated input on #customQueue.
-      const fxRow = () => {
-        const needSliders = NEEDS.map(n => {
-          const val = customFx.needs[n.key] ?? 0;
-          return `<label><span style="color:${n.color}">\u25a0</span> ${needLabel(n)} <input type="range" class="fxsl_need" data-need="${n.key}" min="0" max="1" step=".05" value="${val}"><output>${val.toFixed(2)}</output></label>`;
-        }).join('');
-        return `<div class="fxRow" style="margin-top:6px;border-top:1px dashed currentColor;padding-top:6px">
-          <label>${t.custEventHP} <input type="range" class="fxsl_hp" min="-1" max="1" step=".05" value="${customFx.hp}"><output>${customFx.hp.toFixed(2)}</output></label>
-          ${needSliders}
+      // Each staged pulse = a card: header (swatch + dim + life + remove) on top, amp + τ as full-width
+      // slider rows below. Side effects render as their own aligned grid regardless of queue state, so a
+      // pure side-effect event (e.g. "Drink Water" with only a thirst refill) needs no placeholder text.
+      const pulseCards = customQueue.map((p, i) => {
+        const lbl = p.dim === 'v' ? 'val' : p.dim === 'a' ? 'aro' : 'dom';
+        const col = COL[p.dim];
+        return `<div class="queueItem" style="border-left-color:${col}">
+          <div class="qHead">
+            <span style="color:${col}">\u25a0</span> ${t[lbl]}
+            <span class="life">${fmtLife(p.tau)}</span>
+            <button class="rmCustom" data-idx="${i}" aria-label="×">×</button>
+          </div>
+          <div class="qRow"><span>${t.custAmp}</span><input type="range" class="qsl_a" data-idx="${i}" min="-1" max="1" step=".05" value="${p.amp}"><output>${p.amp.toFixed(2)}</output></div>
+          <div class="qRow"><span>${t.custTau}</span><input type="range" class="qsl_t" data-idx="${i}" min="1" max="500" step="1" value="${p.tau}"><output>${p.tau}</output></div>
         </div>`;
-      };
-      q.innerHTML = customQueue.length === 0
-        ? `<small>${t.custEmpty}</small>${fxRow()}`
-        : customQueue.map((p, i) => {
-          const lbl = p.dim === 'v' ? 'val' : p.dim === 'a' ? 'aro' : 'dom';
-          return `<div class="queueItem">
-          <span style="color:${COL[p.dim]}">■</span> ${t[lbl]}
-          <label>${t.custAmp} <input type="range" class="qsl_a" data-idx="${i}" min="-1" max="1" step=".05" value="${p.amp}"><output>${p.amp.toFixed(2)}</output></label>
-          <label>${t.custTau} <input type="range" class="qsl_t" data-idx="${i}" min="1" max="500" step="1" value="${p.tau}"><output>${p.tau}</output></label>
-          <span class="life">${fmtLife(p.tau)}</span>
-          <button class="rmCustom" data-idx="${i}" aria-label="×">×</button>
-        </div>`;
-        }).join('') + fxRow();
+      }).join('');
+      // Side effects: HP first, then one row per registered need (including custom needs). Stage into customFx;
+      // read by Fire / Save. Always rendered — no empty state needed.
+      const fxRows = NEEDS.map(n => {
+        const val = customFx.needs[n.key] ?? 0;
+        return `<div class="fxRow"><span><span style="color:${n.color}">\u25a0</span> ${needLabel(n)}</span><input type="range" class="fxsl_need" data-need="${n.key}" min="0" max="1" step=".05" value="${val}"><output>${val.toFixed(2)}</output></div>`;
+      }).join('');
+      const fxSection = `<div class="fxSection">
+        <div class="fxTitle">${t.custFxTitle}</div>
+        <div class="fxRow"><span>${t.custEventHP}</span><input type="range" class="fxsl_hp" min="-1" max="1" step=".05" value="${customFx.hp}"><output>${customFx.hp.toFixed(2)}</output></div>
+        ${fxRows}
+      </div>`;
+      q.innerHTML = pulseCards + fxSection;
       // input + click events are delegated on #customQueue in wireUI() — no per-element attachments here.
     }
     /* ============ UI event wiring (delegated) ============ */
@@ -2743,21 +2903,6 @@
         buildArchForm();
         alert(t.custSaveDone);
       });
-      $('#randomEvent').addEventListener('click', () => {
-        // Pick a random non-sleep event, decompose it into pulses (via pulsesOf), and load them into the custom queue.
-        // The user can then inspect / adjust / fire — no more firing straight to Q. (For ambiguous events the impacts are read through the current baseline mood, same as in fireEvents.)
-        const pool = EVENTS.filter(e => e.g !== 'sleep');
-        const e = pool[Math.floor(Math.random() * pool.length)];
-        const imp = e.amb ? { v: K.ambValence * S.bv, a: K.ambArousal + K.ambArousalBase * S.ba, d: 0 } : e;
-        customQueue.length = 0;
-        for (const p of pulsesOf(e, imp)) customQueue.push({ dim: p.dim, amp: p.amp, tau: p.tau });
-        // Load side effects too: hp straight through; needs mapped (hunger lives in e.food for built-ins).
-        customFx.hp = e.hp ?? 0;
-        customFx.needs = {};
-        if (e.food) customFx.needs.h = e.food;
-        if (e.needs) for (const k in e.needs) customFx.needs[k] = e.needs[k];
-        renderCustomQueue();
-      });
 
       // Modal open buttons
       $('#refs').addEventListener('click', () => { $('#refsModal').hidden = false; });
@@ -2780,15 +2925,28 @@
         renderBestiary();
         $('#archModal').hidden = true;
       });
-      // Add a custom need. The key is sanitised (a–z0–9, _); collisions with existing need keys or P keys refuse.
-      // On Create: push to CUSTOM_NEEDS, persist, re-merge into NEEDS, seed S[key]=.8, re-render the needs list,
-      // the create-event form (so the new need appears as a field), and re-sync EVENT_BY_KEY so events that
-      // reference the new need resolve cleanly.
+      // Add a custom need (or restore a previously-deleted builtin like hunger). The key is sanitised
+      // (a–z0–9, _); collisions with existing need keys or P keys refuse — except a hidden builtin key,
+      // which is restored (un-hidden) instead of refused. On Create: register the need, persist, re-merge
+      // into NEEDS, seed S[key]=.8, re-render the needs list + composer + chart legend + gauges.
       $('#needCreate').addEventListener('click', () => {
         const form = $('#needForm');
         const rawKey = form.querySelector('#needKeyInput').value.trim();
         if (!rawKey) return;
         const key = rawKey.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        // Restore a previously-deleted builtin need (e.g. hunger) instead of refusing the collision.
+        const hiddenBuiltin = BUILTIN_NEEDS.find(n => n.key === key && HIDDEN_BUILTIN_NEEDS.has(n.key));
+        if (hiddenBuiltin) {
+          restoreBuiltinNeed(key);
+          if (S[key] === undefined) S[key] = .8;           // re-seed live state (was deleted)
+          renderNeeds();
+          renderCustomQueue();
+          buildVariablePanel();
+          $('#needModal').hidden = true;
+          form.querySelector('#needKeyInput').value = '';
+          form.querySelector('#needLabelInput').value = '';
+          return;
+        }
         if (!key || NEEDS.some(n => n.key === key) || P[key + 'rate'] !== undefined) return;   // refuse collisions
         const num = id => { const v = parseFloat(form.querySelector(id).value); return isNaN(v) ? 0 : v; };
         const decayParam = key + 'rate';
@@ -2861,24 +3019,68 @@
         }
       });
 
-      // ===== Bestiary — delegate click + input on #bestiary =====
-      // .spawnArch = spawn one instance now. .archCfg = toggle that archetype's spawn-rate config.
-      // input.spawnCell = live write of spawn rate / despawn rate to ARCHETYPES (no persistence).
-      // Needs-list: delete a custom need (delegated on #needsList). Builtin needs can't be deleted.
+      // ===== Needs-list: ⚙ toggle + × delete (delegated click on #needsList) =====
+      // ⚙ toggles the inline .needCfg tuning table (same pattern as bestiary .archCfg).
+      // × deletes ANY need (hunger included): removes it from NEEDS, wipes its live state + decay param,
+      // and records the deletion so it survives reload. Series/gauge/history adapt dynamically (see
+      // seriesList / frame / readout — all derive the need set from NEEDS, not a hardcoded 'h').
       $('#needsList').addEventListener('click', e => {
+        const cfgBtn = e.target.closest('button.needCfgBtn');
+        if (cfgBtn) {
+          const cfg = cfgBtn.parentElement.querySelector('.needCfg');
+          if (cfg) cfg.hidden = !cfg.hidden;
+          return;
+        }
         const del = e.target.closest('button[data-need-del-idx]');
         if (!del) return;
         const idx = +del.dataset.needDelIdx;
         const n = NEEDS[idx];
-        if (!n || n.builtin) return;
-        CUSTOM_NEEDS = CUSTOM_NEEDS.filter(x => x.key !== n.key);
-        saveCustomNeeds(CUSTOM_NEEDS);
+        if (!n) return;
+        if (n.builtin) {
+          // Builtin (hunger): record the hide so it stays gone on reload; keep hmood in P (harmless).
+          HIDDEN_BUILTIN_NEEDS.add(n.key);
+          saveHiddenBuiltinNeeds(HIDDEN_BUILTIN_NEEDS);
+        } else {
+          CUSTOM_NEEDS = CUSTOM_NEEDS.filter(x => x.key !== n.key);
+          saveCustomNeeds(CUSTOM_NEEDS);
+        }
         syncNeeds();
         delete S[n.key];            // wipe live agent state for the removed need
-        delete P[n.decayParam];    // wipe its decay param
-        renderNeeds();
+        if (!n.builtin) delete P[n.decayParam];    // wipe its decay param (custom needs only)
+        renderNeeds();              // rebuilds needs list + gauges (hunger gauge disappears with the need)
         renderCustomQueue();      // refresh composer so the deleted need's slider disappears
         buildVariablePanel();     // refresh chart legend so the deleted need's checkbox disappears
+      });
+
+      // ===== Needs-list: inline tuning sliders (delegated input on #needsList) =====
+      // .nsl_decay → P[n.decayParam] (live). .nsl_mood / .nsl_desp → mutate the need object's
+      // moodWeight / desperFloor live and persist for custom needs. .nsl_param → P[paramKey] for the
+      // hunger-only global (hmood). No full re-render on drag — just the output updates.
+      $('#needsList').addEventListener('input', e => {
+        const sl = e.target.closest('input[type=range]');
+        if (!sl) return;
+        const td = sl.closest('td');
+        const out = td && td.querySelector('output');
+        const v = parseFloat(sl.value);
+        if (sl.classList.contains('nsl_decay') || sl.classList.contains('nsl_mood') || sl.classList.contains('nsl_desp')) {
+          const n = NEEDS[+sl.dataset.needIdx];
+          if (!n) return;
+          if (sl.classList.contains('nsl_decay')) {
+            P[n.decayParam] = v;
+            if (out) out.textContent = v.toFixed(4);
+          } else if (sl.classList.contains('nsl_mood')) {
+            n.moodWeight = v;
+            if (out) out.textContent = v.toFixed(2);
+            if (!n.builtin) saveCustomNeeds(CUSTOM_NEEDS);
+          } else {
+            n.desperFloor = v;
+            if (out) out.textContent = v.toFixed(2);
+            if (!n.builtin) saveCustomNeeds(CUSTOM_NEEDS);
+          }
+        } else if (sl.classList.contains('nsl_param')) {
+          P[sl.dataset.param] = v;
+          if (out) out.textContent = v.toFixed(2);
+        }
       });
 
       $('#bestiary').addEventListener('click', e => {

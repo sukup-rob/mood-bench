@@ -97,27 +97,14 @@
 ---
 
 # TODO
-- fix asleep affect drift
-
-| State | Valence drift target | Valence drift rate | Arousal drift target | Arousal drift rate |
-|---|---|---|---|---|
-| Awake | 0 (neutral) | **Fast** ("mean of recent history" is a fine proxy) | Moderate baseline (~0.15–0.25) | Moderate |
-| REM | 0 (neutral) | **Slow** (~30–50% of wake rate) | Slightly elevated | Low (nearly stable) |
-| NREM (SWS) | 0 (neutral) | **Intermediate** (~60–80% of wake rate) | Low (~0.05–0.1) | Moderate (pulls arousal down) |
-
+- FIX SLEEP DEBT DOING SOMETHING WEIRD
+- ENTIRE ENVIRONMENT FRAMEWORK. CLEAN CUT BETWEEN "WORLD" and "AGENT"
 - energy meter. (same category as sleep debt - meters that arent directly bodily, but very much affect stuff).
 - remove hunger from behaviour definitions.
-- metabolism rate. affected by speed, heat, health, ...? should have a number it doesnt go under.
-- Catabolism rate. higher catabolism = higher energy bar filling + higher hunger bar emptying. affected by stress, behaviour... should have a number it never goes under.
+- catabolism rate. higher catabolism = higher energy bar filling + higher hunger bar emptying. affected by stress, behaviour... should have a number it never goes under.
 - speed meter. affected by behaviour, temperament, health, ...?. higher speed = objects spawn more + metabolism rate goes up. is closer to "behaviour" than to "hunger", categorically.
-- make the event rates actually be affected by things. (behaviour for now - later location if that gets un-parked)
-- remove "no spikes queued click + to add one" from the custom events button section. replace with like. "no custom events created"
 - NEEDS as a part of memory entries
 - CUSTOM NEEDS AS A PART OF THE GRAPH
-- make needs tweakable from the NEEDS section (then remove needs subsection from parameters section because itll be redundant lol)
-- MAKE HUNGER REMOVABLE
-- make recent events collapsable
-- make the custom event composer suck less
 
 
 # TODO (less important edition)
@@ -126,8 +113,10 @@ Long-term set point (weeks/months)
     ↑ nudged by sustained affect + major events
     ↓ pulls adaptation level
 - add seasonal/diurnal tuning. when sun rises and disappears should be sliders, as well as temperature.
-- add a section (similar to sleep) for "hurt" and maybe "feed" and "water". this will be a kind of "artificial magic messing with the agent" section i think.
+- add a section (similar to sleep) for "hurt" and maybe "feed" and "water". this will be a kind of "artificial magic messing with the agent" section i think. maybe another drawer?
 - The code only does instrumental ("I chose to approach this, and it felt X"), never Pavlovian ("this was present when X happened to me"). FIX  THAT
+- (after Energy Meter is implemented) metabolism rate. affected by speed, heat, health, ...? should have a number it doesnt go under.
+- make default events tweakable and editable
 
 ## temperament implementation
 
@@ -139,15 +128,6 @@ Long-term set point (weeks/months)
 | **Docile ↔ Aggressive** | Threshold for negative valence in social/provocative contexts + arousal reactivity to threat | Low threshold = smaller provocation needed to push valence negative; high reactivity = bigger spike per provocation |
 | **Solitary ↔ Sociable** | Valence *polarity* of social stimuli specifically | Social stimuli are a positive input for sociable agents, a neutral-or-negative input for solitary agents |
 
-long term...
-```pseudocode
-# Baseline is a function of temperament at initialization
-baseline_arousal = 0.35 + 0.15 * activity_level - 0.05 * shyness
-baseline_valence = 0.10 + 0.05 * sociability - 0.05 * aggressiveness
-# Range constraint: baseline can drift (as we discussed), but temperament
-# pulls it back if it strays too far. Think of it as a wider "home zone."
-baseline_pull_rate = 0.001 + 0.002 * (1.0 - reactivity)  # high-reactivity agents have less stable baselines  
-```
 
 adaptation level...
 ```pseudocode
@@ -209,7 +189,15 @@ Avoidant agent encounters novel stimulus
 - environment
 Noted for later — the seed is: a biome or location concept where each archetype lists which biomes it appears in, the agent has a current biome (or x/y position on a biome map), and spawns are rate = biomeSpawnRate[archetype] instead of stateSpawnRate[archetype]. States like fleeing could shift the agent's biome (running blindly into deeper woods), which gives you the cascade effect without the causal inversion.
 - needs vs wants
-
+- Long Term Baseline
+```pseudocode
+# Baseline is a function of temperament at initialization
+baseline_arousal = 0.35 + 0.15 * activity_level - 0.05 * shyness
+baseline_valence = 0.10 + 0.05 * sociability - 0.05 * aggressiveness
+# Range constraint: baseline can drift, but temperament pulls it back if it strays too far. Think of it as a wider "home zone."
+baseline_pull_rate = 0.001 + 0.002 * (1.0 - reactivity)  # high-reactivity agents have less stable baselines  
+```
+- remove dominance?
 
 ---
 
@@ -231,6 +219,10 @@ Noted for later — the seed is: a biome or location concept where each archetyp
 - got rid of default water need
 - got rid of one of the event composer (why the hell did we have two of those, anyways)
 
+1.2.1
+- you can now add custom needs! (next on my plate: need-specific desperation)
+- hunger is now treated as just another custom need (except for where it isnt) - is now removable
+- UI: collapsable recent events section now
 
 
 
