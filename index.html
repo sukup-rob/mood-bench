@@ -12,10 +12,47 @@
       box-sizing: border-box
     }
 
+    /* Shared base for all the small inline "tool buttons" scattered through the
+       drawer and modals (× deletes, ⚙ config toggles, + spawn buttons, etc).
+       Per-class rules below only set the bits that genuinely differ. */
+    .miniBtn {
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+      color: inherit;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 5px
+    }
+    .miniBtn:hover { background: var(--bg-press) }
+
     :root {
       color-scheme: light dark;
       padding-top: env(safe-area-inset-top, 0px);
-      padding-bottom: env(safe-area-inset-bottom, 0px)
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+
+      /* Palette — all raw color literals in the file route through these vars.
+         Light/dark overrides can hook [data-theme=light]/[data-theme=dark] later. */
+      --border-faint:   rgba(127, 127, 127, .4);
+      --border-strong:  rgba(127, 127, 127, .6);
+      --bg-rest:        rgba(127, 127, 127, .10);
+      --bg-hover:       rgba(127, 127, 127, .20);
+      --bg-active:      rgba(127, 127, 127, .22);
+      --bg-soft:        rgba(127, 127, 127, .06);
+      --bg-item:        rgba(127, 127, 127, .12);
+      --bg-press:       rgba(127, 127, 127, .25);
+
+      --panel-border:   #2a3540;
+      --panel-bg:       #2a3540;
+      --panel-bg-deep:  #1a2230;
+      --muted:          #7a8a99;
+      --accent:         #4a9e6f;
+      --accent-bg:      rgba(74, 158, 111, .08);
+
+      --badge-fg:       #dfe6ee;
+      --sick-bg:        #3a2230;  --sick-fg: #e88;  --sick-bd: #6a3a4a;
+      --depl-bg:        #2a2a40;  --depl-fg: #a9a3d8; --depl-bd: #4a4a6a;
     }
 
     :root[data-theme=light] {
@@ -32,7 +69,7 @@
       margin: 0 auto;
       padding: 12px;
       /* body is now the push-drawer grid: auto drawer (left) + main column (centers content).
-         Drawer on the left to match the left-floated ☰ toggle. Mirrors the old .timelineRow pattern. */
+         Drawer on the left to match the left-floated ☰ toggle. */
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       gap: 12px
@@ -78,18 +115,18 @@
       gap: 6px;
       padding: 5px 10px;
       cursor: pointer;
-      background: rgba(127, 127, 127, .10);
-      border: 1.5px solid rgba(127, 127, 127, .4);
+      background: var(--bg-rest);
+      border: 1.5px solid var(--border-faint);
       border-radius: 6px;
       color: inherit;
       font-size: .9em;
       line-height: 1;
       transition: background .12s, border-color .12s
     }
-    #drawerbtn:hover { background: rgba(127, 127, 127, .2); }
+    #drawerbtn:hover { background: var(--bg-hover); }
     #drawerbtn[aria-expanded="true"] {
-      background: rgba(127, 127, 127, .22);
-      border-color: rgba(127, 127, 127, .6)
+      background: var(--bg-active);
+      border-color: var(--border-strong)
     }
     #drawerbtn .dbIcon { display: inline-flex; align-items: center; font-size: 1em; }
     /* chevron points toward the drawer: when closed (drawer hidden), it points right (open →);
@@ -131,6 +168,160 @@
       margin: auto
     }
 
+    .envBadge {
+      display: inline-block;
+      padding: 2px 10px;
+      margin: 4px auto 2px;
+      border-radius: 10px;
+      background: var(--panel-bg);
+      color: var(--badge-fg);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: capitalize;
+      text-align: center;
+    }
+
+    /* #status = compact condition badges under the behaviour label. Sick/Depleting pills appear only while
+       active; the ⓘ legend chip is always on. Each carries its full sentence as a hover tooltip. */
+    #status {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      min-height: 22px;
+      margin: 4px
+    }
+    .statusBadge {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-transform: capitalize;
+      cursor: help;
+      white-space: nowrap;
+    }
+    .statusBadge.sick { background: var(--sick-bg); color: var(--sick-fg); border: 1px solid var(--sick-bd); }
+    .statusBadge.depl { background: var(--depl-bg); color: var(--depl-fg); border: 1px solid var(--depl-bd); }
+    .statusBadge.hint { background: transparent; color: var(--muted); border: 1px solid var(--panel-border); font-size: 12px; padding: 1px 7px; }
+
+    .envItem {
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin: 6px 0;
+    }
+    .envItem.envActive {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    .envHead {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .envHead b {
+      flex: 1;
+      text-transform: capitalize;
+    }
+    .envTag {
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    /* .envForce / .envDel reuse .miniBtn; only the slightly larger pill differs. */
+    .envForce, .envDel {
+      font-size: 12px;
+      padding: 1px 8px;
+      border-radius: 4px
+    }
+    .envProps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 6px 0;
+    }
+    .envProps label {
+      display: flex;
+      flex-direction: column;
+      font-size: 11px;
+      color: var(--muted);
+      gap: 2px;
+    }
+    .envProps input {
+      width: 70px;
+    }
+    .envEditor {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--panel-border);
+    }
+    .envLabel {
+      flex: 1;
+      font-weight: bold;
+      text-transform: capitalize;
+      background: transparent;
+      border: 1px solid transparent;
+      color: inherit;
+      padding: 1px 4px;
+      border-radius: 3px;
+      min-width: 80px;
+    }
+    .envLabel:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+    .envLabelStatic {
+      flex: 1;
+      text-transform: capitalize;
+    }
+    /* .envEdit mirrors .envForce/.envDel exactly — share the rule. */
+    .envEdit {
+      font-size: 12px;
+      padding: 1px 8px;
+      border-radius: 4px
+    }
+    .envRules {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .envRule {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .envRule select {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+    }
+    .envRule input[type=number] {
+      width: 64px;
+    }
+    .envRuleAdd {
+      margin-top: 2px;
+      padding-top: 4px;
+      border-top: 1px dashed var(--panel-border);
+    }
+    .envSpawnAdd {
+      font-size: 11px;
+      padding: 1px 6px;
+      white-space: nowrap
+      /* border-radius 3px from .miniBtn */
+    }
+    .envRuleDel {
+      font-size: 12px;
+      padding: 1px 6px
+      /* border-radius 3px and cursor:pointer come from .miniBtn */
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
@@ -142,18 +333,26 @@
       gap: 8px
     }
 
-    /* recent events list under the timeline */
-    #eventLog {
-      margin-top: 4px
+    /* #eventDetail = strip under the timeline. Shows every tag currently under the cursor (one .evRow each,
+       so overlapping badges are all visible at once), or a hint/empty message when nothing is hovered.
+       The timeline badges themselves are the recent-events view. */
+    #eventDetail {
+      margin-top: 4px;
+      min-height: 22px
     }
+    #eventDetail small { color: var(--muted) }
 
     .evRow {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin: 3px 0;
+      margin: 2px 0;
       flex-wrap: wrap
     }
+    /* Pinned row = sticky fallback after the cursor leaves. Slightly brighter than a hover preview so it reads
+       as "this is what's pinned", not just another hovered tag. */
+    .evRow.pinned { opacity: 1 }
+    .evRow.pinned .evNum { box-shadow: 0 0 0 2px rgba(255,255,255,.35) }
 
     .evNum {
       display: inline-block;
@@ -207,7 +406,7 @@
     #composerField {
       margin: 6px 0;
       padding: 6px 12px;
-      border: 1px solid rgba(127, 127, 127, .4);
+      border: 1px solid var(--border-faint);
       border-radius: 4px
     }
 
@@ -215,6 +414,16 @@
       font-weight: 600;
       margin: 0 0 4px
     }
+
+    /* Drawer section headings (Needs / Bestiary / Environments) each carry a float:right action button.
+       <summary> is display:list-item by default, which does NOT establish a block formatting context — so an
+       uncontained float leaks out and the next summary's text flows up beside the previous button, making the
+       three buttons look like they're reacting to each other. display:flow-root makes each summary establish
+       its own block formatting context, which contains the float so every button stays parked at the right
+       edge of its own row. */
+    #drawer > details > summary { display: flow-root; }
+    /* The three summary action buttons themselves (openNeedEditor / openArchEditor / openEnvEditor). */
+    #drawer > details > summary > button { float: right; }
 
     #events>fieldset>legend {
       font-weight: 600;
@@ -301,16 +510,7 @@
     }
 
     #refsClose:hover {
-      background: rgba(127, 127, 127, .2)
-    }
-
-    #refsPanel ul {
-      margin: 8px 0 0;
-      padding-left: 20px
-    }
-
-    #refsPanel li {
-      margin: 4px 0
+      background: var(--bg-hover)
     }
 
     /* custom event composer */
@@ -326,13 +526,13 @@
       cursor: pointer;
       border: 1.5px dashed;
       /* colour set inline per dim — distinct from the solid preset event buttons */
-      background: rgba(127, 127, 127, .08);
+      background: var(--bg-soft);
       border-radius: 4px;
       font-weight: 500;
     }
 
     #customButtons button:hover {
-      background: rgba(127, 127, 127, .2)
+      background: var(--bg-hover)
     }
 
     #customQueue {
@@ -347,7 +547,7 @@
        old cramped single-line flex-wrap that mashed two 80px sliders + labels + life + × together. */
     .queueItem {
       padding: 6px 8px;
-      background: rgba(127, 127, 127, .10);
+      background: var(--bg-rest);
       border-left: 3px solid;   /* dim colour set inline per card */
       border-radius: 3px;
       font-size: .9em;
@@ -375,7 +575,7 @@
     .fxSection {
       margin-top: 4px;
       padding: 6px 8px;
-      background: rgba(127, 127, 127, .06);
+      background: var(--bg-soft);
       border-radius: 3px;
     }
     .fxSection .fxTitle {
@@ -403,7 +603,7 @@
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      background: rgba(127, 127, 127, .12);
+      background: var(--bg-item);
       border-radius: 3px;
       font-size: .85em;
       flex-wrap: wrap;
@@ -417,27 +617,10 @@
       border-radius: 2px;
       flex: 0 0 auto;
     }
-    .needCfgBtn {
-      padding: 0 4px;
-      font-size: 14px;
-      line-height: 1;
-      vertical-align: middle;
-      cursor: pointer;
-      background: transparent;
-      border: 1px solid currentColor;
-      border-radius: 3px;
-    }
-    .needCfgBtn:hover { background: rgba(127, 127, 127, .25) }
-    .needDel {
-      background: transparent;
-      border: 1px solid currentColor;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      padding: 0 5px;
-    }
-    .needDel:hover { background: rgba(127, 127, 127, .25) }
+    .needCfgBtn { padding: 0 4px; vertical-align: middle }
+    /* .needCfgBtn:hover comes from .miniBtn:hover */
+    .needDel { padding: 0 5px }
+    /* .needDel:hover comes from .miniBtn:hover */
     .needCfg { margin-top: 4px; width: 100%; overflow: hidden }
     .needCfg table {
       border-collapse: collapse;
@@ -451,20 +634,9 @@
     .needCfg td:last-child > input[type=range] { width: calc(100% - 2.7em); vertical-align: middle; min-width: 0 }
     .needCfg output { display: inline-block; width: 2.5em; text-align: right; font-variant-numeric: tabular-nums; opacity: .8 }
 
-    .rmCustom {
-      background: transparent;
-      border: 1px solid currentColor;
-      border-radius: 3px;
-      color: inherit;
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      padding: 0 6px
-    }
+    .rmCustom { padding: 0 6px }
+    /* color/border/cursor/font-size/line-height/border-radius + :hover all from .miniBtn */
 
-    .rmCustom:hover {
-      background: rgba(127, 127, 127, .25)
-    }
 
     /* surrounding panel */
     #surroundingList {
@@ -480,7 +652,7 @@
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      background: rgba(127, 127, 127, .12);
+      background: var(--bg-item);
       border-radius: 3px;
       font-size: .85em
     }
@@ -514,7 +686,7 @@
       align-items: center;
       gap: 4px;
       padding: 4px 8px;
-      background: rgba(127, 127, 127, .12);
+      background: var(--bg-item);
       border-radius: 3px;
       font-size: .85em;
       flex-wrap: wrap
@@ -537,6 +709,7 @@
     }
 
     /* bestiary panel (grouped by category) */
+    .bestNote { color: var(--muted) }
     #bestiary {
       margin-top: 6px
     }
@@ -546,8 +719,7 @@
       padding: 0 4px;
       font-size: 14px;
       line-height: 1;
-      vertical-align: middle;
-      cursor: pointer;
+      vertical-align: middle
     }
     .bestCfg {
       margin-top: 4px;
@@ -620,7 +792,7 @@
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      background: rgba(127, 127, 127, .12);
+      background: var(--bg-item);
       border-radius: 3px;
       font-size: .85em;
       flex-wrap: wrap
@@ -634,20 +806,9 @@
       opacity: .6
     }
 
-    .spawnArch {
-      background: transparent;
-      border: 1px solid currentColor;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      padding: 0 5px;
-      margin-left: auto
-    }
+    .spawnArch { padding: 0 5px; margin-left: auto }
+    /* rest from .miniBtn */
 
-    .spawnArch:hover {
-      background: rgba(127, 127, 127, .25)
-    }
 
     /* archetype editor modal + needs editor modal (shared styles via comma-separated selectors) */
     #archModal[hidden],
@@ -700,7 +861,7 @@
 
     #archClose:hover,
     #needClose:hover {
-      background: rgba(127, 127, 127, .2)
+      background: var(--bg-hover)
     }
 
     #archForm label,
@@ -731,9 +892,9 @@
     <small id="behaviourLegend"></small>
   </details>
 
-  <details open>
+  <details>
     <summary><b data-t="evh"></b></summary>
-    <details open>
+    <details>
         <summary data-t="randCfg"></summary>
         <div id="randomCfg"></div>
       </details>
@@ -750,13 +911,19 @@
   </details>
 
   <details>
-    <summary><b data-t="needsh"></b> <button id="openNeedEditor" data-t="needAdd" style="float:right"></button></summary>
+    <summary><b data-t="needsh"></b> <button id="openNeedEditor" data-t="needAdd"></button></summary>
     <div id="needsList"></div>
   </details>
 
   <details>
-    <summary><b data-t="besth"></b> <button id="openArchEditor" data-t="archAdd" style="float:right"></button></summary>
+    <summary><b data-t="besth"></b> <button id="openArchEditor" data-t="archAdd"></button></summary>
+    <small data-t="bestNote" class="bestNote" style="display:block;margin:4px 0"></small>
     <div id="bestiary"></div>
+  </details>
+
+  <details>
+    <summary><b data-t="envsh"></b> <button id="openEnvEditor" data-t="envAdd"></button></summary>
+    <div id="envList"></div>
   </details>
 
   <details>
@@ -773,21 +940,18 @@
     <h1 data-t="title"></h1>
     <button id="refs" aria-label="References / Prameny" title="References / Prameny">📑</button>
     <button id="lang" aria-label="Language / Jazyk" title="Language / Jazyk">🌐</button>
-    <p><button id="pause"></button> <button id="reset" data-t="reset"></button></p>
+    <p><button id="pause"></button> <button id="load" data-t="load" data-a="loadTip"></button> <button id="save" data-t="save" data-a="saveTip"></button></p>
   </header>
 
   <section>
     <canvas id="timeline" role="img"></canvas>
-    <details>
-      <summary><b data-t="logh"></b></summary>
-      <div id="eventLog"></div>
-    </details>
+    <div id="eventDetail"></div>
   </section>
 
   <div class="columns">
     <section>
-      <h2 data-t="worldh"></h2>
       <b id="clockText" style="font-size:32px"></b> <small id="sleepDebt"></small>
+      <div id="envBadge" class="envBadge" title="Active environment"></div>
       <canvas id="gaugeLight" class="gauge" role="img" data-a="litg"></canvas>
       <canvas id="gaugeSleep" class="gauge" role="img" data-a="slpg"></canvas>
       <canvas id="gaugeTemp" class="gauge" role="img" data-a="tempg"></canvas>
@@ -801,7 +965,7 @@
       <canvas id="moodPlane" role="img" data-a="plane"></canvas>
       <h2 id="moodLabel" style="text-align:center;margin:4px"></h2>
       <h3 id="behaviourLabel" style="text-align:center;margin:4px"></h3>
-      <p id="status" aria-live="polite" style="text-align:center;margin:4px"></p>
+      <p id="status" aria-live="polite"></p>
       <canvas id="gaugeDominance" class="gauge" role="img" data-a="domg"></canvas>
       <div id="needGauges"></div>
       <canvas id="gaugeHealth" class="gauge" role="img" data-a="hltg"></canvas>
@@ -886,7 +1050,7 @@
                d. Sleep      (stepBodyClock, stepSleepPressure, stepSleepWake)
                e. Behaviour  (chooseBehaviour, chooseRandomEvents, record)
        14. Drawing                    (COL, GC, SER, SHOW, BASE_KEY, STRETCH, INK, fit,
-                                        drawTimeline, drawMoodPlane, gauge, lastLogKey, readout)
+                                        drawTimeline, drawMoodPlane, gauge, readout)
        15. Main loop                  (last, frame)
        16. UI                         (sign, fmt, clockLabel, evName, eventLabel, glyph,
                                         addSlider, sync, addGroup, addBranch, buildText,
@@ -928,14 +1092,24 @@
         editor: 'Editor',
         editor: 'Editor',
         val: 'Valence', aro: 'Arousal', dom: 'Dominance', hun: 'Hunger meter', hlt: 'Health', slp: 'Sleep pressure', base: 'base',
-        varh: 'Variables', vars: 'Show or hide the variable panel', logh: 'Recent events', logEmpty: 'No events yet.',
+        varh: 'Variables', vars: 'Show or hide the variable panel', logHint: 'Hover a tag to see what happened · click to pin (click several to stack them)', logEmpty: 'No events yet.',
         note: 'Dashed = baseline. Numbered tags on the chart are color-coded by event group (red = threat, orange = food, pink = social, slate = env, brown = body, purple = sleep) — hover one for the event names. Top strip = behaviour. Arousal includes the body-clock offset. Boxes choose which lines to draw.',
-        worldh: 'Environment', evh: 'Events', parh: 'Parameters', cust: 'Custom event composer',
+        evh: 'Events', parh: 'Parameters', cust: 'Custom event composer',
         wopt: 'Clock, light and rhythm', temph: 'Temperament',
         surrEmpty: 'Nothing in view.',
         memh: 'Memory', memEmpty: 'No memories yet.',
         besth: 'Object types',
+        bestNote: 'Each archetype defines what an object IS (features, events, payoff). Where and how often objects spawn is a property of the environment — see the Environment section below.',
         archName: 'name', archAdd: 'Add type', archCreate: 'Create',
+        envsh: 'Environments', envAdd: 'Add env',
+        envActive: 'active', envForce: 'Force', envForceTip: 'Throw the agent into this environment now (bypasses the wander roll).',
+        envEdit: 'Edit', envEditTip: 'Toggle the editor for this environment.',
+        envDelTip: 'Delete this environment (builtins can be restored by resetting all env edits in the browser console).',
+        envTempLo: 'Temp min (°C)', envTempHi: 'Temp max (°C)',
+        envEnter: 'Enter weight', envLeave: 'Leave factor',
+        envEnterTip: 'Relative chance the agent wanders INTO this environment. 0 = unreachable (the agent can be forced in, but never wanders in).',
+        envLeaveTip: 'Multiplier on the current behaviour\u2019s wander rate \u2014 how readily the agent leaves this environment. 0 = pinned (cannot leave).',
+        envSpawnAdd: '+ rule', envSpawnDelTip: 'Remove this spawn rule.',
         spawnh: 'Spawn rates', ageh: 'Despawn', spawnTip: 'Spawn rates (encounters per sim-hour) and despawn rate for this archetype. Edit live — changes apply immediately.',
         spawnCellTip: 'Encounters per sim-hour while in this state. 0 = never spawns. (1 sim-hour = 20 ticks.)',
         ageCellTip: 'Despawn rate: how fast this object ages per tick. 1 = normal. Higher = vanishes faster. Flee/approach overrides still apply on top.',
@@ -950,14 +1124,14 @@
         custEventName: 'name', custEventGroup: 'group', custEventV: 'valence', custEventA: 'arousal', custEventD: 'dominance', custEventHP: 'hp', custEventFood: 'food',
         custEventGroupCustom: 'Custom events', custEventDelete: 'Delete',
         feat: {
-          size: { small: 'small', medium: 'medium', large: 'large' },
-          color: { dark: 'dark', red: 'red', green: 'green', blue: 'blue', brown: 'brown' },
-          shape: { round: 'round', angular: 'angular', animal: 'animal', plant: 'plant' }
+          size: { small: 'Small', medium: 'Medium', large: 'Large' },
+          color: { dark: 'Dark', red: 'Red', green: 'Green', blue: 'Blue', brown: 'Brown' },
+          shape: { round: 'Round', angular: 'Angular', animal: 'Animal', plant: 'Plant' }
         },
-        fire: 'Fire custom event', rand: 'Random preset', pause: 'Pause', resume: 'Resume', reset: 'Reset',
+        fire: 'Fire custom event', rand: 'Random preset', pause: 'Pause', resume: 'Resume', load: 'Load', save: 'Save', loadTip: 'Not implemented yet — sorry!', saveTip: 'Not implemented yet — sorry!',
         custClear: 'Clear queue', custEmpty: 'No custom events currently added.',
         custSave: 'Save event', custSavePrompt: 'Name this event:', custSaveEmpty: 'Compose at least one pulse first.', custSaveExists: 'An event with that name already exists.', custSaveDone: 'Saved — see it under Custom events below.', custFxTitle: 'Effects',
-        custAmp: 'amp', custTau: 'τ',
+        custAmp: 'Amp', custTau: 'τ',
         custAddFmt: 'Add {dim} pulse',   // button text for the per-dimension add buttons ("spike" suggests up-only; "pulse" is direction-neutral and matches the codebase terminology)
         refsh: 'Papers used in this model', refsi: 'Each paper below is cited inline in the code or underlies a named concept. They are grouped by topic — Affect structure (VAD), Learning & memory, Two-process sleep, Sleep loss & affect, Temperament — so the list stays navigable as it grows. The “where” line on each entry points at the code that implements the idea.',
         refs: [
@@ -1040,13 +1214,14 @@
         neutral: 'Neutral', q: ['Excitement', 'Calm', 'Sadness', 'Anxiety'],
         pos: 'positive', neg: 'negative', hi: 'high arousal', lo: 'low arousal',
         sb: '−1 submissive', dm: 'dominant +1', sv: '0 starving', fl: 'full 1', hl0: '0 very ill', hl1: 'healthy 1',
-        depl: 'Depleting: baseline valence is below the threshold, so baseline arousal and dominance are shrinking.',
-        sick: 'Sick: health is slowly draining.',
-        hint: 'Dot = current mood, dashed ring = baseline. If the baseline pegs at an edge with a small arrow, it has gone beyond the chart range (sustained unwellness can push baseline valence/dominance below −1).',
+        depl_label: 'Depleting', depl_text: 'Baseline valence is below the threshold, so baseline arousal and dominance are shrinking each tick.',
+        sick_label: 'Sick', sick_text: 'Health is slowly draining until a heal signal is received.',
+        hint_label: '\u24d8', hint_text: 'Dot = current mood, dashed ring = baseline. If the baseline pegs at an edge with a small arrow, it has gone beyond the chart range (sustained unwellness can push baseline valence/dominance below \u22121).',
         amb: 'reaction follows mood',
         plane: 'Valence and arousal plane', domg: 'Dominance gauge', hung: 'Hunger gauge', hltg: 'Health gauge', litg: 'Light level', slpg: 'Sleep pressure gauge',
         st: { idle: 'Resting', foraging: 'Foraging', socialising: 'Socialising', explore: 'Exploring', nrem: 'NREM sleep', rem: 'REM sleep', approach_object: 'Approaching', flee_object: 'Fleeing object' },
         eg: { threat: 'Threats', food: 'Food / energy', social: 'Social', env: 'Environment / novelty', body: 'Body', sleep: 'Sleep', neutral: 'Neutral' },
+        env: { burrow: 'Burrow', plains: 'Plains', forest: 'Forest', river: 'River', void: 'Void' },
         ev: { rustle: 'Rustle in the grass', fell_asleep: 'Falling asleep', woke_up: 'Natural waking', sleep_interrupted: 'Sleep interrupted', ate_food: 'Feed', pain: 'Hurt', recovery: 'Heal', illness_onset: 'Sicken', grooming_contact: 'Groom', loud_noise: 'Startle' },
         gm: 'Mood dynamics', gn: 'Needs', gs: 'Sleep', gw: 'Environment',
         gh: 'Health', gb: 'Behaviour', gl: 'Learning', gpv: 'Preview pulses',
@@ -1098,14 +1273,24 @@
       cs: {
         title: 'Laboratoř nálady',
         val: 'Valence', aro: 'Aktivace', dom: 'Dominance', hun: 'Ukazatel hladu', hlt: 'Zdraví', slp: 'Potřeba spánku', base: 'základ',
-        varh: 'Proměnné', vars: 'Zobrazit nebo skrýt panel proměnných', logh: 'Poslední události', logEmpty: 'Zatím žádné události.',
+        varh: 'Proměnné', vars: 'Zobrazit nebo skrýt panel proměnných', logHint: 'Najezdi na značku, co se stalo · klikni pro připnutí (více kliknutí = více připnutí)', logEmpty: 'Zatím žádné události.',
         note: 'Přerušovaně = základ. Číslované štítky = události (které, říká seznam pod grafem; zkus i najet myší). Horní pruh = chování. Aktivace zahrnuje posun podle tělesných hodin. Zaškrtávátky vybereš, které čáry se kreslí.',
-        worldh: 'Prostředí', evh: 'Události', parh: 'Parametry', cust: 'Skladatel vlastní události',
+        evh: 'Události', parh: 'Parametry', cust: 'Skladatel vlastní události',
         wopt: 'Hodiny, světlo a rytmus', temph: 'Temperament',
         surrEmpty: 'Nic v dohledu.',
         memh: 'Paměť', memEmpty: 'Zatím žádné vzpomínky.',
         besth: 'Typy objektů',
+        bestNote: 'Každý archetyp definuje, co objekt JE (vlastnosti, události, užitek). Kde a jak často se objekty spawnou je vlastnost prostředí — viz sekce Prostředí níže.',
         archName: 'název', archAdd: 'Přidat typ', archCreate: 'Vytvořit',
+        envsh: 'Prostředí', envAdd: 'Přidat prostředí',
+        envActive: 'aktivní', envForce: 'Vhodit', envForceTip: 'Vhodit agenta do tohoto prostředí nyní (obejde wander roll).',
+        envEdit: 'Upravit', envEditTip: 'Přepnout editor pro toto prostředí.',
+        envDelTip: 'Smazat toto prostředí (vestavěné lze obnovit resetem všech úprav prostředí v konzoli prohlížeče).',
+        envTempLo: 'Teplota min (°C)', envTempHi: 'Teplota max (°C)',
+        envEnter: 'Váha vstupu', envLeave: 'Faktor odchodu',
+        envEnterTip: 'Relativní šance, že agent zabloudí DO tohoto prostředí. 0 = nedosažitelné (agenta lze vhodit, ale nikdy nezabloudí).',
+        envLeaveTip: 'Násobitel wander rychlosti aktuálního chování \u2014 jak snadno agent toto prostředí opustí. 0 = přichycen (nelze opustit).',
+        envSpawnAdd: '+ pravidlo', envSpawnDelTip: 'Odstranit toto pravidlo spawnutí.',
         spawnh: 'Míry výskytu', ageh: 'Mizení', spawnTip: 'Míry výskytu (výskyty za sim-hodinu) a rychlost mizení pro tento archetyp. Upravujte živě — změny se aplikují okamžitě.',
         spawnCellTip: 'Výskyty za sim-hodinu v tomto stavu. 0 = nikdy se neobjeví. (1 sim-hodina = 20 ticků.)',
         ageCellTip: 'Rychlost mizení: jak rychle objekt stárne za tick. 1 = normální. Vyšší = mizí rychleji. Přepisy pro útěk/přiblížení se stále aplikují navíc.',
@@ -1124,10 +1309,10 @@
           color: { dark: 'tmavé', red: 'červené', green: 'zelené', blue: 'modré', brown: 'hnědé' },
           shape: { round: 'kulaté', angular: 'hranaté', animal: 'zvíře', plant: 'rostlina' }
         },
-        fire: 'Spustit vlastní událost', rand: 'Náhodná šablona', pause: 'Pauza', resume: 'Pokračovat', reset: 'Resetovat',
+        fire: 'Spustit vlastní událost', rand: 'Náhodná šablona', pause: 'Pauza', resume: 'Pokračovat', load: 'Načíst', save: 'Uložit', loadTip: 'Zatím neimplementováno — sorry!', saveTip: 'Zatím neimplementováno — sorry!',
         custClear: 'Vyčistit frontu', custEmpty: 'Zatím nebyly přidány žádné vlastní události.',
         custSave: 'Uložit událost', custSavePrompt: 'Pojmenuj tuto událost:', custSaveEmpty: 'Nejprve přidej aspoň jeden pulz.', custSaveExists: 'Událost s tímto názvem už existuje.', custSaveDone: 'Uloženo — najdeš ji níže pod Vlastní události.', custFxTitle: 'Efekty',
-        custAmp: 'amp', custTau: 'τ',
+        custAmp: 'Amp', custTau: 'τ',
         custAddFmt: 'Přidat pulz {dim}',   // text tlačítka pro přidání podle dimenze ("spike" navrhuje pouze nahoru; "pulz" je směrově neutrální a odpovídá terminologii v kódu)
         refsh: 'Prameny použité v modelu', refsi: 'Každý z následujících článků je citován přímo v kódu nebo je základem některého pojmenovaného konceptu. Jsou seskupeny podle tématu — Struktura afektu (VAD), Učení a paměť, Dvouprocesový spánek, Ztráta spánku a afekt, Temperament — aby seznam zůstal přehledný i při dalším růstu. Řádek „where“ u každého záznamu ukazuje na kód, který danou myšlenku implementuje.',
         refs: [
@@ -1210,13 +1395,14 @@
         neutral: 'Neutrální stav', q: ['Nadšení', 'Klid', 'Smutek', 'Úzkost'],
         pos: 'kladná', neg: 'záporná', hi: 'vysoká aktivace', lo: 'nízká aktivace',
         sb: '−1 podřízený', dm: 'dominantní +1', sv: '0 hladový', fl: 'sytý 1', hl0: '0 těžce nemocný', hl1: 'zdravý 1',
-        depl: 'Vyčerpání: základní valence je pod prahem, takže se zmenšuje základní aktivace a dominance.',
-        sick: 'Nemoc: zdraví pomalu klesá.',
-        hint: 'Tečka = aktuální nálada, přerušovaný kroužek = základ.',
+        depl_label: 'Vyčerpání', depl_text: 'Základní valence je pod prahem, takže se každý tik zmenšuje základní aktivace a dominance.',
+        sick_label: 'Nemoc', sick_text: 'Zdraví pomalu klesá, dokud nepřijde signál k léčbě.',
+        hint_label: '\u24d8', hint_text: 'Tečka = aktuální nálada, přerušovaný kroužek = základ. Pokud se základ zarazí na okraji s malou šipkou, vyšel mimo rozsah grafu (dlouhodobá nevolnost může posunout základní valenci/dominanci pod \u22121).',
         amb: 'reakce závisí na náladě',
         plane: 'Rovina valence a aktivace', domg: 'Ukazatel dominance', hung: 'Ukazatel hladu', hltg: 'Ukazatel zdraví', litg: 'Úroveň světla', slpg: 'Ukazatel potřeby spánku',
         st: { idle: 'Odpočívá', foraging: 'Hledá potravu', socialising: 'Stýká se', explore: 'Zkoumá', nrem: 'Spánek NREM', rem: 'Spánek REM', approach_object: 'Přibližuje se', flee_object: 'Prchá před objektem' },
         eg: { threat: 'Hrozby', food: 'Potrava / energie', social: 'Společenské', env: 'Prostředí / novost', body: 'Tělo', sleep: 'Spánek', neutral: 'Neutrální' },
+        env: { burrow: 'Nora', plains: 'Pláně', forest: 'Les', river: 'Řeka', void: 'Prázdnota' },
         ev: {
           predator_attack: 'Útok predátora',
           ate_food: 'Nakrmit',
@@ -1397,6 +1583,28 @@
     // "full" (1.0 = no deficit) so a need removed mid-session can't poison the aggregators with NaN.
     const needMood = c => NEEDS.reduce((sum, n) => sum + n.moodWeight * hurt(c[n.key] ?? 1), 0);
     const desperation = c => Math.max(0, ...NEEDS.map(n => desperHurt(c[n.key] ?? 1, n.desperFloor)));
+    // cravingVector(s) = per-need deficit profile, keyed by need key, each 0..1. Vector form of desperation:
+    // desperation collapses to a scalar (max), cravingVector keeps the per-need shape so an object's payoff
+    // profile can be matched against it. Uses the SAME desperHurt shape + desperFloor per need — so a need
+    // only registers as craved once it crosses its own desperation floor (not a flat linear deficit). A missing
+    // need (s[key] undefined) → no deficit, so removed needs can't poison salience.
+    const cravingVector = s => {
+      const v = {};
+      for (const n of NEEDS) v[n.key] = desperHurt(s[n.key] ?? 1, n.desperFloor);
+      return v;
+    };
+    // salience(obj, s) = how relevant this object is to the agent's current deficits. Dot-product of the
+    // object's need-payoff profile (obj.fulfills, auto-derived from its events' `needs` dicts — see
+    // ARCHETYPES) with the agent's craving vector. Pure function of (obj.fulfills, s) — no side effects,
+    // safe to call repeatedly for sorting. 0 = irrelevant right now (object fulfills no craved need).
+    const salience = (obj, s) => {
+      const crave = cravingVector(s);
+      const f = obj.fulfills;
+      if (!f) return 0;
+      let sum = 0;
+      for (const k in f) sum += f[k] * (crave[k] ?? 0);
+      return sum;
+    };
     const needLabel = n => t.needLabel?.[n.key] || n.label || n.key;
     // drainNeed: called by the environment to drain a need (e.g. energy via cold, sleep-dep burn).
     // Today no archetype uses it — the seam exists for when energy becomes a registered need.
@@ -1521,18 +1729,18 @@
     };
     const ST = {
       idle: {
-        col: '#7a8a99', tug: { a: [-.2, .02] }, want: c => 1,
+        col: '#7a8a99', tug: { a: [-.2, .02] }, want: c => 1, wanderRate: 0.0002,
       },   // idle: rare encounters (spawn rates live on each archetype's .spawns)
       foraging: {
-        col: '#c9772b', needs: { h: 1.8 }, push: { a: .002 },    // looks for food
+        col: '#c9772b', needs: { h: 1.8 }, push: { a: .002 }, wanderRate: 0.0003,    // looks for food
         want: c => c.h < c.sat ? (1 - c.h) * 5 : .3,
       },   // foraging: moving around
       socialising: {
-        col: '#d0488f', needs: { h: 1.6 }, push: { v: .004, a: .001 },   // (renamed from "playing") social contact with conspecifics
+        col: '#d0488f', needs: { h: 1.6 }, push: { v: .004, a: .001 }, wanderRate: 0.0002,   // (renamed from "playing") social contact with conspecifics
         can: c => c.h > .25 && c.v > -.2, stay: c => c.h > .15, want: c => c.h * 1.5,
       },   // socialising: some movement
       explore: {
-        col: '#4a9e6f', needs: { h: 1.2 }, push: { a: .001 },                           // free-time wandering, only when fed
+        col: '#4a9e6f', needs: { h: 1.2 }, push: { a: .001 }, wanderRate: 0.003,                           // free-time wandering, only when fed — primary env-change signal
         can: c => c.h > .4, want: c => c.h * (.5 + .5 * Math.max(0, c.a)),   // more aroused = more curious. TODO: also scale by c.temperament.exploration
       },   // explore: free-time wandering
       nrem: {
@@ -1543,15 +1751,15 @@
       },
       approach_object: {
         col: '#e8a020', needs: { h: 1.5 },   //  agent approaches a perceived object it expects to be good (or is curious / desperate enough to investigate). Uses the curiosity() helper so hunger boosts curiosity and damp neophobia.
-        can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return ev + cur - neo > 0; },
-        stay: c => !!eyes(),
-        want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return Math.max(ev + cur - neo, 0); },
+        can: c => { const t = eyes(c); if (!t) return false; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return ev + cur - neo > 0; },
+        stay: c => !!eyes(c),
+        want: c => { const t = eyes(c); if (!t) return 0; const m = memory.get(featureKey(t.features)); const { cur, neo, ev } = curiosity(c, m); return Math.max(ev + cur - neo, 0); },
       },
       flee_object: {
-        col: '#e04040', needs: { h: 2.5 }, impact: 1.5,   //  agent flees a perceived object it expects to be bad
-        can: c => { const t = eyes(); if (!t) return false; const m = memory.get(featureKey(t.features)); return m && m.valence < 0 && m.conf > 0.3; },
-        stay: c => !!eyes(),
-        want: c => { const t = eyes(); if (!t) return 0; const m = memory.get(featureKey(t.features)); if (!m || m.valence >= 0) return 0; return Math.abs(m.valence) * m.conf; },
+        col: '#e04040', needs: { h: 2.5 }, impact: 1.5, wanderRate: 0.0008,   //  agent flees a perceived object it expects to be bad — small chance of bolting into another env
+        can: c => { const t = eyes(c); if (!t) return false; const m = memory.get(featureKey(t.features)); return m && m.valence < 0 && m.conf > 0.3; },
+        stay: c => !!eyes(c),
+        want: c => { const t = eyes(c); if (!t) return 0; const m = memory.get(featureKey(t.features)); if (!m || m.valence >= 0) return 0; return Math.abs(m.valence) * m.conf; },
       },
     };
 
@@ -1563,7 +1771,7 @@
     // When approachTimer reaches APPROACH_TICKS: fire the US event (marked with fromApproach), consume the target.
     function stepApproach(s) {
       if (behaviour !== 'approach_object') { s.approachTimer = 0; return; }
-      const target = eyes();
+      const target = eyes(s);
       if (!target) { behaviour = 'idle'; s.approachTimer = 0; return; }
       s.approachTimer = (s.approachTimer || 0) + 1;
       if (s.approachTimer < APPROACH_TICKS) return;
@@ -1633,7 +1841,7 @@
     // Pick the next awake behaviour (never a sleep stage). Sets the global `behaviour`.
     function decide(c) {
       //  check the attended object for approach/flee decisions
-      const target = eyes();
+      const target = eyes(c);
       const desper = reckless(c);                                    // 0 when fed, 1 at empty hunger — drives reckless approach
       if (target) {
         const mem = memory.get(featureKey(target.features));
@@ -1728,7 +1936,7 @@
     //   events          — array of event keys that fire when this object is approached (was: underlyingType → TYPE_TO_US lookup)
     //   ttl             — ticks until despawn
     //   age             — ticks since spawned
-    // Spawned here; read by eyes() / previewPulse() / stepApproach() / renderSurrounding().
+    // Spawned here; read by perceive() / select() / previewPulse() / stepApproach() / renderSurrounding().
     let nextObjectId = 1;
     const SURR_FEATURES = {
       size: ['small', 'medium', 'large'],
@@ -1745,43 +1953,127 @@
     //                      Multiple = the approach picks one at random (e.g. rival → social_loss or social_win).
     //   innateValence?   — if set, the agent is born expecting this much valence from this feature pattern.
     //   innateConf?      — confidence of the innate expectation (defaults to 0.3 if omitted).
-    //   spawns?          — { state: rate } per-tick spawn probability for each behaviour state. Absolute chance
-    //                      (not relative): stepSurrounding sums the rates of all archetypes for the current state,
-    //                      rolls once against the sum, weighted-picks which archetype. Unspecified = 0 (never spawns
-    //                      in that state). Tune live via the spawn-rates grid in the UI.
+    //   fulfills         — auto-derived at init from the events' `needs` dicts (see the derive loop below).
+    //                      Hand-authoring it overrides the auto-derive.
     //   surroundAgeRate? — how fast this object's TTL ages per tick (default 1). The flee/approach target overrides
-    //                      in stepSurrounding still apply on top. Tune live via the spawn-rates grid.
+    //                      in stepSurrounding still apply on top. Tune live via the despawn input in the bestiary.
+    //   (Spawn rates USED to live here as arch.spawns — they have moved to ENVIRONMENTS, since which objects
+    //    spawn where is a property of the environment, not the object type. See the Environment drawer.)
     // INNATE_MEMORY is auto-derived from ARCHETYPES (see below).
     const ARCHETYPES = {
       // ── predators (innate wariness of large dark animal shapes — pre-seeded with valence -0.7, conf 0.6) ──
-      wolf: { features: { size: 'large', color: 'dark', shape: 'animal' }, events: [EV.predator_attack], innateValence: -.7, innateConf: .6,
-              spawns: { idle: 0.00005, foraging: 0.00005, explore: 0.0003, flee_object: 0.005 } },
-      fox: { features: { size: 'medium', color: 'red', shape: 'animal' }, events: [EV.predator_attack],
-             spawns: { idle: 0.00005, foraging: 0.00005, explore: 0.0003, flee_object: 0.003 } },
-      owl: { features: { size: 'small', color: 'dark', shape: 'animal' }, events: [EV.predator_attack],
-             spawns: { idle: 0.00005, explore: 0.0003, flee_object: 0.002 } },
+      wolf: { features: { size: 'large', color: 'dark', shape: 'animal' }, events: [EV.predator_attack], innateValence: -.7, innateConf: .6 },
+      fox: { features: { size: 'medium', color: 'red', shape: 'animal' }, events: [EV.predator_attack] },
+      owl: { features: { size: 'small', color: 'dark', shape: 'animal' }, events: [EV.predator_attack] },
       // ── food (innate attraction to small green round shapes — pre-seeded valence +0.5, conf 0.3) ──
-      berry_bush: { features: { size: 'small', color: 'green', shape: 'round' }, events: [EV.ate_food], innateValence: .5, innateConf: .3,
-                    spawns: { foraging: 0.005, explore: 0.0015 } },
-      nut: { features: { size: 'small', color: 'brown', shape: 'round' }, events: [EV.ate_food],
-             spawns: { foraging: 0.001, explore: 0.001 } },
+      berry_bush: { features: { size: 'small', color: 'green', shape: 'round' }, events: [EV.ate_food], innateValence: .5, innateConf: .3 },
+      nut: { features: { size: 'small', color: 'brown', shape: 'round' }, events: [EV.ate_food] },
       // ── social ──
-      friend: { features: { size: 'small', color: 'brown', shape: 'animal' }, events: [EV.grooming_contact],
-                spawns: { idle: 0.0001, socialising: 0.0015, explore: 0.0002 } },
-      rival: { features: { size: 'medium', color: 'red', shape: 'angular' }, events: [EV.social_loss, EV.social_win],   // 50/50 win-or-lose
-               spawns: { socialising: 0.0008, flee_object: 0.002 } },
+      friend: { features: { size: 'small', color: 'brown', shape: 'animal' }, events: [EV.grooming_contact] },
+      rival: { features: { size: 'medium', color: 'red', shape: 'angular' }, events: [EV.social_loss, EV.social_win] },   // 50/50 win-or-lose
       // ── environment / novelty ──
-      cracker: { features: { size: 'small', color: 'brown', shape: 'angular' }, events: [EV.loud_noise],
-                 spawns: { explore: 0.001 } },
+      cracker: { features: { size: 'small', color: 'brown', shape: 'angular' }, events: [EV.loud_noise] },
       // ── body (healing / sickness) ──
-      herb: { features: { size: 'medium', color: 'green', shape: 'plant' }, events: [EV.recovery],
-              spawns: { idle: 0.00005, explore: 0.0005 } },
-      rotten_food: { features: { size: 'small', color: 'brown', shape: 'plant' }, events: [EV.illness_onset],
-                     spawns: { explore: 0.0002 } },
+      herb: { features: { size: 'medium', color: 'green', shape: 'plant' }, events: [EV.recovery] },
+      rotten_food: { features: { size: 'small', color: 'brown', shape: 'plant' }, events: [EV.illness_onset] },
       // ── neutral (no US — approach produces a tiny curiosity bump + "this = nothing" memory update) ──
-      pebble: { features: { size: 'small', color: 'dark', shape: 'round' }, events: [],
-                spawns: { idle: 0.0007, socialising: 0.0003, explore: 0.003, approach_object: 0.0005 } },
+      pebble: { features: { size: 'small', color: 'dark', shape: 'round' }, events: [] },
+      // ── water (neutral — thirst removed, so water fulfills nothing; exists for the RIVER "many objects, none salient" test) ──
+      water: { features: { size: 'large', color: 'blue', shape: 'round' }, events: [] },
     };
+
+    /* ============ ENVIRONMENTS ============
+    // Each ENVIRONMENT owns its own spawn table, temperature range, and movement profile. W.environment selects
+    // which env is active; stepSurrounding reads the active env's .spawns (NOT arch.spawns — that's now the base
+    // rate used by the bestiary grid and as a fallback only). The agent's "explore" behaviour doubles as the
+    // attempting-to-change-env signal: while exploring, a wander roll (rate = ST.explore.wanderRate ×
+    // env.leaveFactor) fires pickEnvironment() — a weighted-random pick over the OTHER envs' enterWeights.
+    //
+    // Each entry:
+    //   spawns      — { archName: perTickRate }. The active env's spawns are summed each tick in stepSurrounding
+    //                 and a single weighted-pick selects which archetype spawns (rate is now behaviour-
+    //                 independent — the old per-state table was flattened; the peak state rate was kept as the
+    //                 flat rate so nothing spawns less often than before). 0 / missing = never spawns.
+    //   tempRange   — [min, max] °C the env's temperature oscillates between across the day cycle. The day cycle
+    //                 (deriveWorld) interpolates within this range; the env sets the range, the clock sets the phase.
+    //   enterWeight  — weight in pickEnvironment()'s weighted-random reroll. 0 = unreachable (VOID).
+    //   leaveFactor  — multiplier on the behaviour's wanderRate. 0 = cannot leave (VOID, safety net).
+    //   label       — display name. For builtins this is the i18n key (t.env[key]); for custom envs it's the
+    //                 user-editable string. Custom envs additionally carry builtin:false.
+    // Persistence: ENVIRONMENTS is a `let`, overlaid with edits + custom envs + builtin deletions saved to
+    // localStorage (loadEnvEdits/saveEnvEdits below — same pattern as custom events). Builtin edits persist as
+    // field diffs; custom envs are stored whole; deleted builtins are tracked in ENV_DELETED (a persisted set of
+    // keys) so deleting a builtin survives reload. ENV_KEYS is rebuilt after any add/remove.
+    // Authoring: to add a builtin env, add an entry to ENV_DEFAULTS. To add one at runtime, use the drawer. */
+    const ENV_DEFAULTS = {
+      burrow: {
+        label: 'Burrow', builtin: true,
+        tempRange: [16, 22], enterWeight: 0.5, leaveFactor: 1.4,     // hard-ish to find, easy to leave
+        spawns: { friend: 0.002, rival: 0.0008, herb: 0.00003, nut: 0.0003 },   // peak state rate per archetype (flattened)
+      },
+      plains: {
+        label: 'Plains', builtin: true,
+        tempRange: [10, 28], enterWeight: 1, leaveFactor: 1,
+        spawns: { berry_bush: 0.005, pebble: 0.002, rotten_food: 0.0008, owl: 0.0003 },   // berry_bush peaks in foraging, pebble in explore
+      },
+      forest: {
+        label: 'Forest', builtin: true,
+        tempRange: [8, 20], enterWeight: 0.8, leaveFactor: 0.8,     // denser — slightly harder to push through
+        spawns: { nut: 0.004, berry_bush: 0.0008, wolf: 0.0003, fox: 0.0003 },   // nut peaks in foraging
+      },
+      river: {
+        label: 'River', builtin: true,
+        tempRange: [8, 18], enterWeight: 0.7, leaveFactor: 1.2,
+        spawns: { water: 0.03, pebble: 0.015 },   // water + pebble dominate — "many objects, none salient" test env
+      },
+      void: {
+        label: 'Void', builtin: true,
+        tempRange: [0, 0], enterWeight: 0, leaveFactor: 0,           // unreachable test env (enterWeight 0 = never picked)
+        spawns: {},
+      },
+    };
+    // ENVIRONMENTS = the live env table. Start from defaults (minus any deleted builtins), then overlay persisted
+    // edits + custom envs. saveEnvEdits writes field diffs for builtins, whole objects for custom envs, and the
+    // ENV_DELETED set so builtin deletions persist. v2 key — the old per-state shape is gone; v1 data is discarded.
+    const ENVIRONMENTS_KEY = 'moodbench_environments_v2';
+    let ENV_DELETED = new Set();   // keys of builtins the user deleted (persisted, so they stay gone on reload)
+    let ENVIRONMENTS = JSON.parse(JSON.stringify(ENV_DEFAULTS));   // deep clone so live edits don't mutate defaults
+    const loadEnvEdits = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(ENVIRONMENTS_KEY) || '{}');
+        ENV_DELETED = new Set(saved.__deleted || []);
+        for (const k of ENV_DELETED) delete ENVIRONMENTS[k];   // drop deleted builtins
+        for (const [k, v] of Object.entries(saved)) {
+          if (k === '__deleted') continue;
+          if (ENV_DEFAULTS[k]) Object.assign(ENVIRONMENTS[k], v);   // builtin: overlay saved fields (spawns, temp, etc.)
+          else ENVIRONMENTS[k] = v;                                   // custom env: add whole
+        }
+      } catch (e) { /* corrupt store → fall back to defaults */ }
+    };
+    const saveEnvEdits = () => {
+      try {
+        const out = {};
+        if (ENV_DELETED.size) out.__deleted = [...ENV_DELETED];
+        for (const [k, v] of Object.entries(ENVIRONMENTS)) {
+          const def = ENV_DEFAULTS[k];
+          if (!def) out[k] = v;                                       // custom env: store whole
+          else {
+            // builtin: store only fields that differ from the default (so a default reset wipes edits)
+            const diff = {};
+            if (JSON.stringify(v.spawns) !== JSON.stringify(def.spawns)) diff.spawns = v.spawns;
+            if (JSON.stringify(v.tempRange) !== JSON.stringify(def.tempRange)) diff.tempRange = v.tempRange;
+            if (v.enterWeight !== def.enterWeight) diff.enterWeight = v.enterWeight;
+            if (v.leaveFactor !== def.leaveFactor) diff.leaveFactor = v.leaveFactor;
+            if (v.label !== def.label) diff.label = v.label;
+            if (Object.keys(diff).length) out[k] = diff;
+          }
+        }
+        localStorage.setItem(ENVIRONMENTS_KEY, JSON.stringify(out));
+      } catch (e) { }
+    };
+    loadEnvEdits();   // load on script init
+    let ENV_KEYS = Object.keys(ENVIRONMENTS);
+    const DEFAULT_ENV = 'plains';
 
     function objectSvg(features) {
       const sz = SURR_SIZE_PX[features.size], col = SURR_COLOR_HEX[features.color];
@@ -1798,28 +2090,54 @@
       return { size: pick(SURR_FEATURES.size), color: pick(SURR_FEATURES.color), shape: pick(SURR_FEATURES.shape) };
     }
 
-    // (Spawn rates now live on each archetype's .spawns field — see ARCHETYPES above. The old separate
-    // SPAWN_RATES table (organized by state) was folded into the archetypes so each archetype owns its own
-    // spawn rates and can be tuned live via the spawn-rates grid in the UI.)
+    // (Spawn rates live on each ENVIRONMENT's flat .spawns field — { archName: perTickRate } — see ENVIRONMENTS
+    // above. The active env's spawns drive the live loop in stepSurrounding: sum all rates, roll once, weighted-
+    // pick the archetype. Behaviour-dependence was removed when the table was flattened — one rate per archetype.)
 
     // Signature changed: takes the archetype NAME (looked up in ARCHETYPES), not (features, underlyingType).
     function spawnObject(name, ttl = 200) {
       if (W.surrounding.length >= 20) return;   // cap at 20 visible objects so the panel doesn't explode
       const arch = ARCHETYPES[name];
       if (!arch) return;
-      W.surrounding.push({ id: nextObjectId++, name, features: arch.features, events: arch.events, ttl, age: 0 });
+      W.surrounding.push({ id: nextObjectId++, name, features: arch.features, events: arch.events, fulfills: arch.fulfills, ttl, age: 0 });
+    }
+
+    // pickEnvironment() = weighted-random pick over the envs the agent COULD enter, excluding the current one.
+    // Weights = each env's enterWeight; envs with enterWeight 0 (e.g. VOID) are unreachable and never picked.
+    // Forward-compat seam: currently pure-random by enterWeight. When env-memory + craving-weighted choice
+    // land later, this is the single function to edit — callers (the wander roll) don't need to change.
+    function pickEnvironment() {
+      const candidates = ENV_KEYS.filter(k => k !== W.environment && (ENVIRONMENTS[k].enterWeight ?? 0) > 0);
+      const total = candidates.reduce((sum, k) => sum + ENVIRONMENTS[k].enterWeight, 0);
+      if (total <= 0) return null;                                          // no reachable env → stay put
+      let r = Math.random() * total;
+      for (const k of candidates) {
+        r -= ENVIRONMENTS[k].enterWeight;
+        if (r <= 0) return k;
+      }
+      return candidates[candidates.length - 1];
+    }
+
+    // changeEnvironment(to) = swap the active env, clear surrounding objects (the agent left — they don't follow),
+    // and log the change (with the triggering behaviour) so env swaps are observable in the event log.
+    function changeEnvironment(to, via = behaviour) {
+      const from = W.environment;
+      if (!ENVIRONMENTS[to] || to === from) return false;
+      W.environment = to;
+      W.surrounding = [];                          // left the old env → its objects are no longer visible
+      lastPreviewedKey = null;                      // clear so the first object in the new env triggers a fresh preview
+      LOG.unshift({ id: ++evSeq, time: fmt('hour', W.hour), k: [], env: { from, to, via } });   // env-change row in the log (no event chips)
+      if (LOG.length > 200) LOG.pop();   // same cap as event LOG — env changes share the strip and need hover detail too
+      if (typeof renderEnvironments === 'function') renderEnvironments();   // re-render drawer so the active highlight moves (wander-roll swaps too)
+      return true;
     }
 
     // Called from tick() after stepWorld(). Takes s so the preview pulse can apply the sleep-debt anhedonia damper (K.sleepDebtAnhedonia × s.dep).
     function stepSurrounding(s) {
-      // Spawn: iterate all archetypes, collect each one's spawn rate for the current behaviour state,
-      // sum them, roll once against the sum, weighted-pick which archetype. (Rates live on arch.spawns now,
-      // not on a separate SPAWN_RATES table — so tuning one archetype's rates doesn't require touching others.)
-      const entries = [];
-      for (const [name, arch] of Object.entries(ARCHETYPES)) {
-        const rate = arch.spawns?.[behaviour] ?? 0;
-        if (rate > 0) entries.push([name, rate]);
-      }
+      // Spawn: read the ACTIVE env's flat spawn table {arch: perTickRate}. Sum the rates, roll once, weighted-pick
+      // which archetype spawns. (Rate is behaviour-independent now — the old per-state table was flattened.)
+      const env = ENVIRONMENTS[W.environment];
+      const entries = Object.entries(env?.spawns ?? {});
       const totalRate = entries.reduce((sum, [, r]) => sum + r, 0);
       if (totalRate > 0 && Math.random() < totalRate) {
         let r = Math.random() * totalRate;
@@ -1828,9 +2146,18 @@
           if (r <= 0) { spawnObject(name); break; }
         }
       }
+      // Wander roll: "explore" doubles as the attempting-to-change-env signal. The per-tick chance is the
+      // behaviour's wanderRate × the active env's leaveFactor. Firing it picks a new env via pickEnvironment().
+      // (Accidental swaps while fleeing are possible — fleeing keeps the wander roll, just at a lower rate.
+      // VOID is unreachable: enterWeight 0 excludes it from pickEnvironment, leaveFactor 0 pins anything stuck.)
+      const wanderRate = (ST[behaviour]?.wanderRate ?? 0) * (env?.leaveFactor ?? 1);
+      if (wanderRate > 0 && Math.random() < wanderRate) {
+        const next = pickEnvironment();
+        if (next) changeEnvironment(next, behaviour);
+      }
       // Age: each object's TTL ages at its archetype's surroundAgeRate (default 1). The flee/approach target
       // overrides still apply on top — fleeing makes the pursued target leave fast, approaching freezes it.
-      const target = eyes();
+      const target = eyes(s);
       for (const obj of W.surrounding) {
         const arch = ARCHETYPES[obj.name];
         let rate = arch?.surroundAgeRate ?? 1;
@@ -1840,7 +2167,7 @@
       }
       W.surrounding = W.surrounding.filter(obj => obj.age < obj.ttl);
       //  fire a preview pulse when attention switches to a new object (or to anything after a gap).
-      const tgt = eyes();
+      const tgt = eyes(s);
       if (tgt) previewPulse(tgt, s);
       else lastPreviewedKey = null;   // nothing visible → next spawn triggers a fresh preview
     }
@@ -1882,16 +2209,45 @@
       .filter(([, arch]) => arch.innateValence !== undefined)
       .map(([_, arch]) => ({ features: arch.features, valence: arch.innateValence, conf: arch.innateConf ?? 0.3 }));
 
+    // Auto-derive each archetype's `fulfills` (need-payoff profile) by merging the `needs` dicts of all events
+    // in its events[] array. EXAMPLE: berry_bush.events = [ate_food], EXTRA.ate_food.needs = {h:.6} → berry_bush
+    // .fulfills = {h:.6}. Neutral archetypes (pebble, events=[]) → fulfills = {} → salience always 0. Rival
+    // (events: [social_loss, social_win]) currently fulfills nothing since neither carries a `needs` dict —
+    // that's correct, rival payoff is valence (win/loss), not need-satisfaction. Runs once at init; mutates
+    // ARCHETYPES in place. If you hand-author `fulfills` on an archetype, this leaves it alone.
+    for (const [, arch] of Object.entries(ARCHETYPES)) {
+      if (arch.fulfills) continue;                          // hand-authored — respect it
+      const f = {};
+      for (const ek of arch.events ?? []) {
+        const ev = EVENT_BY_KEY[ek];
+        if (!ev || !ev.needs) continue;
+        for (const k in ev.needs) f[k] = Math.max(f[k] ?? 0, ev.needs[k]);   // max across events (don't double-count)
+      }
+      arch.fulfills = f;
+    }
+
     function seedMemory() {
       memory.clear();
       for (const e of INNATE_MEMORY)
         memory.set(featureKey(e.features), { valence: e.valence, conf: e.conf, count: 0, lastSeen: 0 });
     }
 
-    // eyes = pick which visible object the agent is currently attending to: most recently spawned (last in W.surrounding).
-    function eyes() {
-      return W.surrounding.length > 0 ? W.surrounding[W.surrounding.length - 1] : null;
-    }
+    // ── Perception / selection split ──
+    // perceive() = what's in the visual field. Reads ONLY W.surrounding (no agent state, no memory).
+    //   Returns a copy so callers can sort/mutate freely. Thin seam for a future perception radius / FOV /
+    //   occlusion check — callers should never touch W.surrounding directly.
+    const perceive = () => W.surrounding.slice();
+
+    // select(s) = perceived objects ranked by salience (desc). Reads memory (valence/conf) and needs (craving)
+    // to decide what's worth dealing with right now. Pure w.r.t. its inputs: no side effects, safe to call
+    // repeatedly. The sort key is salience(obj, s) — dot-product of obj.fulfills with cravingVector(s).
+    // Callers wanting "the one I'm dealing with" use select(s)[0]. (Replaces the old eyes() heuristic of
+    // "most recently spawned", which conflated perception with selection.)
+    const select = s => perceive().sort((a, b) => salience(b, s) - salience(a, s));
+
+    // eyes() kept as a thin shim returning select(s)[0] for the existing call sites that want the attended-to
+    // object. Prefer select(s)[0] in new code. TODO: migrate remaining eyes() callers to select(s)[0] directly.
+    function eyes(s) { const r = select(s); return r.length ? r[0] : null; }
 
     // learnFromEvent = Rescorla-Wagner update: move expected valence toward the actual felt valence change
     // (the teaching signal), grow confidence. Only called for US events from approach completion (events with
@@ -1916,6 +2272,7 @@
         conspecifics: 0,    // how many others of its own kind are nearby
         temp: 18,           // ambient temperature in degrees C (comfortable is 20)
         surrounding: [],    // currently-visible objects (see stepSurrounding / renderSurrounding)
+        environment: DEFAULT_ENV,   // active ENVIRONMENT key (plains by default) — drives spawns + temp range + wander
         ...WORLD_DEFAULTS
       };   // hour — world state, not parameters
       deriveWorld();   // immediately recompute W.light + W.temp from the (just-reset) hour, so the gauges are consistent even while paused (no tick yet)
@@ -1993,9 +2350,18 @@
     // 1 = neutral, >1 = more salient when the relevant need is high. Incentive-salience-style modulation
     // (Berridge & Robinson 1998): food is more salient when hungry, social events when isolated, etc.
     // Compounds with the base magnitude salience (max of |impacts| or |pulse amps|) in fireEvents.
-    function needMult(g, s, W) {
+    // NOTE: the food case used to read s.h literally; it now derives from the event's own `needs` payoff
+    // matched against cravingVector(s) — same data as object-salience, so any event that fulfills a craved
+    // need gets the boost (not just hardcoded hunger). Events with no `needs` dict fall through to neutral.
+    function needMult(g, s, W, e) {
       switch (g) {
-        case 'food': return 1 + (1 - (s.h ?? 1)) * 0.5;                // food more salient when hungry (up to 1.5× at empty); missing hunger = full = neutral
+        case 'food': {
+          if (!e?.needs) return 1;                                      // no payoff profile → neutral
+          const crave = cravingVector(s);
+          let match = 0;
+          for (const k in e.needs) match += e.needs[k] * (crave[k] ?? 0);
+          return 1 + match * 0.5;                                       // up to 1.5× when the craved need is fully empty
+        }
         case 'body': return 1 + (s.ill ? 0.3 : 0) + (1 - s.hp) * 0.3;   // body events (pain, illness, recovery) more salient when sick / low HP
         case 'social': return 1 + (W.conspecifics === 0 ? 0.3 : 0);       // social events more salient when isolated
         case 'sleep': return 1 + s.dep * 0.3;                            // sleep transitions more salient when sleep-deprived
@@ -2029,7 +2395,7 @@
         const baseSalience = e.pulses ? Math.max(...e.pulses.map(p => Math.abs(p.amp)))
           : e.amb ? Math.max(Math.abs(imp.v), Math.abs(imp.a), Math.abs(imp.d), 0.3)
             : Math.max(Math.abs(e.v), Math.abs(e.a), Math.abs(e.d));
-        const salience = baseSalience * needMult(e.g, s, W);
+        const salience = baseSalience * needMult(e.g, s, W, e);
         const k = salience * (e.g === 'sleep' ? 1 : (def.impact ?? 1));
         const domScale = feltV <= 0 ? K.domGainHalf : 1;
         // For approach-US events (fromApproach set): the teaching signal is THIS event's own valence pulse
@@ -2069,7 +2435,7 @@
       }
       M.push({ n: N, id: ++evSeq, k: names });
       LOG.unshift({ id: evSeq, time: fmt('hour', W.hour), k: names });
-      if (LOG.length > 10) LOG.pop();
+      if (LOG.length > 200) LOG.pop();   // cap high enough that every on-screen timeline badge still has a LOG row for hover detail (timeline window ≈ 600 ticks)
       while (M.length && M[0].n < N - 600) M.shift();
     }
 
@@ -2131,7 +2497,13 @@
     // (no ticks running).
     function deriveWorld() {
       W.light = daylight(W.hour);
-      W.temp = 18 + 6 * Math.sin((W.hour - 9) / 24 * 2 * Math.PI);   // ambient temperature: daily cycle 12-24°C
+      // Temperature: oscillates within the ACTIVE env's tempRange across the day cycle (min at dawn ~06:00,
+      // max in the afternoon ~15:00). The env sets the range; the clock sets the phase. If no env, fall back
+      // to the legacy 12-24°C cycle so a broken env state can't NaN the temperature.
+      const env = ENVIRONMENTS[W.environment];
+      const [lo, hi] = env?.tempRange ?? [12, 24];
+      const phase = Math.sin((W.hour - 9) / 24 * 2 * Math.PI);   // -1..+1, peaks ~15:00, troughs ~03:00
+      W.temp = (lo + hi) / 2 + (hi - lo) / 2 * phase;
     }
 
     function stepWorld() {
@@ -2313,17 +2685,31 @@
         x.globalAlpha = 1; x.lineWidth = 2.2; x.setLineDash([]);
         pathStretch(p => p[k], seriesStretch(k));
       }
-      // Number tags live in the tag strip above the line area. Each tag is colored by the primary event group
-      // of that tick (the first event in m.k), so you can scan the timeline visually — red = threat, orange = food, etc.
-      x.font = '11px system-ui,sans-serif'; x.textAlign = 'center';
+      // Event tags live in the tag strip above the line area. Each tag is a small colored square (no number —
+      // the id is meaningless on the canvas now, and a flat color reads at a glance: red = threat, orange = food…)
+      // drawn at ~0.6 alpha so overlapping tags COMPOSITE darker, letting you see every event even when they stack
+      // densely (events firing on adjacent ticks). Uniform square width → simpler hit-test and more forgiving hover.
+      // The faint vertical line below each tag (drawn earlier) still traces an event down to the chart.
+      const SQ = 10;   // square edge, px — also the hit-test width (MARKS.w)
+      x.textAlign = 'left';
       for (const { m, i } of tags) {
-        const px = X(i), label = String(m.id), tw = x.measureText(label).width + 8;
+        const px = X(i);
         const firstKey = m.k[0];
         const g = (firstKey && EVENT_BY_KEY[firstKey]) ? EVENT_BY_KEY[firstKey].g : 'custom';
-        const col = GC[g] || GC.custom;
-        x.globalAlpha = .9; x.fillStyle = col; x.fillRect(px - tw / 2, 7, tw, 16);   // colored badge background in the tag strip
-        x.globalAlpha = 1; x.fillStyle = '#fff'; x.fillText(label, px, 18);            // white number on the badge
-        MARKS.push({ x: px, m });
+        x.globalAlpha = .6; x.fillStyle = GC[g] || GC.custom;
+        x.fillRect(px - SQ / 2, 9, SQ, SQ);   // square centered on the event's column, in the tag strip
+        MARKS.push({ x: px, w: SQ, m });      // w = square width, used by the hover/click hit-test
+      }
+      // Pinned-badge highlights: a white ring around every pinned tag's square still on screen, so the full set
+      // of pinned tags stays visible as they scroll left. _pinned is keyed by event id (stable per event); badges
+      // that have scrolled off simply aren't in MARKS — their detail still shows from the snapshotted LOG rows.
+      if (_pinned.size) {
+        x.globalAlpha = 1; x.strokeStyle = '#fff'; x.lineWidth = 1.5;
+        for (const id of _pinned.keys()) {
+          const mk = MARKS.find(m => m.m.id === id);
+          if (mk) x.strokeRect(mk.x - SQ / 2 - .5, 8.5, SQ + 1, SQ + 1);
+        }
+        x.lineWidth = 1;
       }
     }
 
@@ -2381,30 +2767,62 @@
       x.fillStyle = INK; x.textAlign = 'center'; x.fillText(name + ' ' + val.toFixed(2), w / 2, 11);
     }
 
-    let lastLogKey = '';   // lastLogKey = what the event list showed last time, so it is rebuilt only when it changes
+    // _hoverMarks = every timeline tag currently under the cursor (badges overlap when events fire on adjacent
+    // ticks), in paint order front→back. Hovering shows ALL of them in #eventDetail at once.
+    // _pinned = a Map<id, logRow> of every tag clicked to pin — MULTI-pin, mirroring the hover mental model:
+    // click a cluster and every tag at that x is pinned together, then another cluster adds to the set. Detail
+    // precedence is hover > pin > hint. Each pin snapshots the tag's LOG row into the map at click time so its
+    // detail survives even after the badge scrolls off the left edge (LOG is capped; the snapshots aren't).
+    // Cleared on reset.
+    let _hoverMarks = [], _pinned = new Map();
+    // _lastSig = cached signature of which status badges are active ('ill,depl' style). Avoids rebuilding the
+    // #status DOM every frame — only re-renders when a condition flips on/off. Cleared on reset.
+    let _lastSig = '';
     function readout() {
       setText('#clockText', fmt('hour', W.hour));
+      const env = ENVIRONMENTS[W.environment];
+      setText('#envBadge', env ? (t.env?.[W.environment] || env.label) : W.environment);   // active environment badge (i18n or raw label)
       renderSurrounding();   // Rebuild the surrounding list every frame (objects age and despawn, TTL counts down)
       renderMemory();        //  rebuild the memory list every frame (learned associations update on event fire)
-      const logKey = lang + ':' + evSeq;
-      if (logKey !== lastLogKey) {
-        lastLogKey = logKey;
-        $('#eventLog').innerHTML = LOG.slice(0, 10).map(l => {
-          // Each entry: a colored number badge (group of the first event in the tick) + time + color-coded chips (one per event).
-          const firstE = l.k.length > 0 ? EVENT_BY_KEY[l.k[0]] : null;
-          const numG = firstE ? firstE.g : 'custom';
-          const numCol = GC[numG] || GC.custom;
-          const chips = l.k.map(k => {
-            const e = EVENT_BY_KEY[k];
-            const g = e ? e.g : 'custom';
-            const c = GC[g] || GC.custom;
-            return `<span class="evChip" style="background:${c}">${eventLabel(k)}</span>`;
-          }).join('');
-          return `<div class="evRow"><span class="evNum" style="background:${numCol}">${l.id}</span><span class="evTime">${l.time}</span>${chips}</div>`;
-        }).join('') || `<small>${t.logEmpty}</small>`;
-      }
+      // The recent-events list under the chart is gone — the timeline squares ARE the recent events. #eventDetail
+      // shows, in precedence order: (1) EVERY square under the cursor — one .evRow each, so overlapping tags are
+      // all visible at once; (2) if nothing hovered but tags are pinned, a row per pinned tag (sticky fallback
+      // after the cursor leaves); (3) a hint/empty message. logRowHTML takes a LOG row directly so pinned rows
+      // render from the snapshotted map even after their badges scroll off (LOG is capped; the snapshots aren't).
+      const logRowHTML = l => {
+        if (!l) return '';
+        const numG = l.k.length && EVENT_BY_KEY[l.k[0]] ? EVENT_BY_KEY[l.k[0]].g : 'custom';
+        const numCol = GC[numG] || GC.custom;
+        if (l.env) {   // env-change row: old → new env chip, colored neutral
+          const fromL = t.env?.[l.env.from] || ENVIRONMENTS[l.env.from]?.label || l.env.from;
+          const toL = t.env?.[l.env.to] || ENVIRONMENTS[l.env.to]?.label || l.env.to;
+          return `<span class="evNum" style="background:${numCol}">${l.id}</span><span class="evTime">${l.time}</span><span class="evChip" style="background:#2a3540" title="via ${l.env.via}">${fromL} → ${toL}</span>`;
+        }
+        const chips = l.k.map(k => {
+          const e = EVENT_BY_KEY[k], g = e ? e.g : 'custom', c = GC[g] || GC.custom;
+          return `<span class="evChip" style="background:${c}">${eventLabel(k)}</span>`;
+        }).join('');
+        return `<span class="evNum" style="background:${numCol}">${l.id}</span><span class="evTime">${l.time}</span>${chips}`;
+      };
       const L = H.length;
-      if (!L) { setText('#moodLabel', ''); setText('#behaviourLabel', ''); setText('#status', ''); return; }   // "nothing yet" e.g. just after Reset
+      if (L) {
+        let detHtml;
+        if (_hoverMarks.length) {                                   // (1) hover: every tag under the cursor
+          detHtml = _hoverMarks.map(mk => {
+            const l = LOG.find(x => x.id === mk.m.id);
+            return l ? `<div class="evRow">${logRowHTML(l)}</div>` : '';
+          }).join('');
+        } else if (_pinned.size) {                                  // (2) pins (sticky when not hovering), oldest id first
+          const rows = [..._pinned.values()].sort((a, b) => a.id - b.id)
+            .map(l => `<div class="evRow pinned">${logRowHTML(l)}</div>`).join('');
+          detHtml = rows || `<small>${t.logHint}</small>`;
+        } else {                                                    // (3) hint / empty
+          detHtml = LOG.length ? `<small>${t.logHint}</small>` : `<small>${t.logEmpty}</small>`;
+        }
+        const ed = $('#eventDetail');
+        if (ed.innerHTML !== detHtml) ed.innerHTML = detHtml;
+      }
+      if (!L) { setText('#moodLabel', ''); setText('#behaviourLabel', ''); setText('#status', ''); $('#eventDetail').innerHTML = ''; _lastSig = ''; _hoverMarks = []; _pinned.clear(); return; }   // "nothing yet" e.g. just after Reset
       const p = H[L - 1], f = (v, b) => v.toFixed(2) + (b === undefined ? '' : ' (' + b.toFixed(2) + ')');   // baseline in compact parens, e.g. "-0.38"; baseline is also drawn as the dashed line on the chart
       for (const [k] of seriesList()) {
         if (p[k] === undefined) continue;                                       // need didn't exist / had no value when this point was recorded
@@ -2414,7 +2832,20 @@
       const quad = p.v >= 0 ? (p.a >= 0 ? 0 : 1) : (p.a >= 0 ? 3 : 2);   // quadrant index: 0 Q1 excited, 1 Q2 calm, 2 Q3 sad, 3 Q4 anxious
       setText('#moodLabel', Math.abs(p.v) < .15 && Math.abs(p.a) < .15 ? t.neutral : t.q[quad]);
       setText('#behaviourLabel', t.st[behaviour]); $('#behaviourLabel').style.color = ST[behaviour].col;
-      setText('#status', [S.ill && t.sick, S.bv < P.thr && t.depl].filter(Boolean).join(' ') || t.hint);   // warnings first, otherwise the hint
+      // #status = small pill badges (Sick / Depleting) shown only while the condition is active, plus an always-on
+      // ⓘ legend chip. Each badge carries its full sentence as a hover tooltip (title), so the row stays compact.
+      // _lastSig caches the active-condition signature so we re-render #status only on change (not every frame).
+      const ill = !!S.ill, depl = S.bv < P.thr, sig = ill + ',' + depl;
+      if (sig !== _lastSig) {
+        const html = [
+          ill  && `<span class="statusBadge sick"  title="${t.sick_text}">${t.sick_label}</span>`,
+          depl && `<span class="statusBadge depl"  title="${t.depl_text}">${t.depl_label}</span>`,
+          `<span class="statusBadge hint"  title="${t.hint_text}">${t.hint_label}</span>`,
+        ].filter(Boolean).join('');
+        const el = $('#status');
+        if (el.innerHTML !== html) el.innerHTML = html;
+        _lastSig = sig;
+      }
     }
 
     // renderGauges = rebuild the #needGauges canvas set from the current NEEDS registry. Called on need
@@ -2503,7 +2934,6 @@
       document.querySelectorAll('[data-a]').forEach(el => { el.setAttribute('aria-label', t[el.dataset.a]); el.title = t[el.dataset.a]; });
       $('#pause').textContent = run ? t.pause : t.resume;
       clockLabel();
-      lastLogKey = '';
       $('#behaviourLegend').innerHTML = Object.keys(ST).map(k => `<span style="color:${ST[k].col}">\u25a0</span> ${t.st[k]}`).join(' &nbsp; ');
     }
 
@@ -2649,16 +3079,12 @@
         const groupLabel = t.eg[g] || g;
         const items = entries.map(([name, arch]) => {
           const feats = `${t.feat.size[arch.features.size]} \u00b7 ${t.feat.color[arch.features.color]} \u00b7 ${t.feat.shape[arch.features.shape]}`;
-          // Per-archetype spawn-rate config: a compact table of state-rate inputs (encounters/sim-hour,
-          // CFG_STATES only — approach/flee hidden) + a despawn input. Hidden until the gear button is
-          // clicked. Changes write through live (delegated in wireUI). Display = per-tick × TICKS_PER_HOUR.
-          const cfgRows = CFG_STATES.map(s => {
-            const v = (arch.spawns?.[s] ?? 0) * TICKS_PER_HOUR;
-            return `<tr><td>${STATE_LABELS[s]}</td><td><input type="number" class="spawnCell" data-name="${name}" data-state="${s}" step="0.01" min="0" value="${+v.toFixed(3)}" title="${t.spawnCellTip}"></td></tr>`;
-          }).join('');
+          // Per-archetype despawn (surroundAgeRate) config — the only spawn-related knob that's a property of the
+          // object TYPE rather than the environment. Spawn RATES moved to the Environment drawer (per-env per-state).
+          // Hidden until the gear is clicked. Changes write through live (delegated in wireUI).
           const av = arch.surroundAgeRate ?? 1;
           const ageRow = `<tr><td>${t.ageh}</td><td><input type="number" class="spawnCell" data-name="${name}" data-field="age" step="0.1" min="0" value="${av}" title="${t.ageCellTip}"></td></tr>`;
-          return `<div class="bestItem">${objectSvg(arch.features)} <b>${name}</b> ${feats} <button class="spawnArch" data-name="${name}">+</button><button class="archCfg" data-name="${name}" title="${t.spawnTip}">\u2699</button><div class="bestCfg" hidden><table><tbody>${cfgRows}${ageRow}</tbody></table></div></div>`;
+          return `<div class="bestItem">${objectSvg(arch.features)} <b>${name}</b> ${feats} <button class="miniBtn spawnArch" data-name="${name}">+</button><button class="archCfg" data-name="${name}" title="${t.spawnTip}">\u2699</button><div class="bestCfg" hidden><table><tbody>${ageRow}</tbody></table></div></div>`;
         }).join('');
         return `<div class="bestCat">${groupLabel}</div><div class="bestCatGrid">${items}</div>`;
       }).join('');
@@ -2674,7 +3100,7 @@
     // TICKS_PER_HOUR = ticks per sim-hour (DT = 0.05 sim-hours/tick → 20). The UI displays spawn rates as
     // encounters per sim-hour (= per-tick rate × TICKS_PER_HOUR) and converts back to per-tick on input.
     const SPAWN_STATES = ['idle', 'foraging', 'socialising', 'explore', 'approach_object', 'flee_object'];
-    const STATE_LABELS = { idle: 'idle', foraging: 'forage', socialising: 'social', explore: 'explore', approach_object: 'approach', flee_object: 'flee' };
+    const STATE_LABELS = { idle: 'Idle', foraging: 'Forage', socialising: 'Social', explore: 'Explore', approach_object: 'Approach', flee_object: 'Flee' };
     const CFG_STATES = SPAWN_STATES.filter(s => s !== 'approach_object' && s !== 'flee_object');
     const TICKS_PER_HOUR = 1 / DT;
 
@@ -2691,6 +3117,62 @@
         return `<tr><td>${label}</td><td><input type="number" class="randChance" data-id="${r.id}" step="0.01" min="0" value="${+v.toFixed(3)}" title="${t.randChanceTip}"></td><td><button class="randTrigger" data-id="${r.id}" title="${t.randTriggerTip}">\u25b6</button></td></tr>`;
       }).join('');
       box.innerHTML = `<table><tbody>${rows}</tbody></table>`;
+    }
+
+    /* ---- Environment drawer ----
+    // renderEnvironments builds the env list with the active env highlighted, and a per-env editor:
+    //   - Force button (throws the agent into this env immediately — bypasses wander roll) — non-active envs only
+    //   - Edit button (toggles the editor panel) — sits next to Force; always present
+    //   - editor: editable label (custom envs only), temp range, enterWeight, leaveFactor (live number inputs),
+    //     a spawn-rule list (one row per archetype: dropdown + rate + remove), and an "add rule" row
+    //   - Delete button (×) — every env EXCEPT the active one. Deleting a builtin persists (ENV_DELETED set).
+    // Spawn rates are flat (one per archetype, behaviour-independent). Rate displays as encounters/sim-hour
+    // (= per-tick × TICKS_PER_HOUR) and converts back to per-tick on input. Edits write through live + persist.
+    // openEditors (a Set of env keys) preserves which editors are expanded across re-renders. */
+    const openEditors = new Set();
+    function renderEnvironments() {
+      const box = $('#envList');
+      if (!box) return;
+      const archNames = Object.keys(ARCHETYPES);
+      box.innerHTML = ENV_KEYS.map(key => {
+        const env = ENVIRONMENTS[key];
+        const active = key === W.environment;
+        const label = t.env?.[key] || env.label || key;
+        const built = env.builtin;
+        const open = openEditors.has(key);
+        // Spawn-rule rows: one per archetype that currently has a rate > 0. Dropdown (archetype) + rate input + ×.
+        const rules = Object.entries(env.spawns || {}).filter(([, r]) => r > 0).map(([an, rate]) => {
+          const v = rate * TICKS_PER_HOUR;
+          const opts = archNames.map(n => `<option value="${n}"${n === an ? ' selected' : ''}>${n}</option>`).join('');
+          return `<div class="envRule"><select class="envSpawnArch" data-env="${key}" data-prev="${an}">${opts}</select><input type="number" class="envSpawnRate" data-env="${key}" data-arch="${an}" step="0.01" min="0" value="${+v.toFixed(3)}" title="${t.spawnCellTip}"><button class="miniBtn envRuleDel" data-env="${key}" data-arch="${an}" title="${t.envSpawnDelTip}">\u00d7</button></div>`;
+        }).join('');
+        // Add-rule row: a dropdown of archetypes not yet used + an "add" button. Hidden if every archetype is used.
+        const used = new Set(Object.keys(env.spawns || {}).filter(a => env.spawns[a] > 0));
+        const free = archNames.filter(n => !used.has(n));
+        const addOpts = free.map(n => `<option value="${n}">${n}</option>`).join('');
+        const addRow = free.length ? `<div class="envRule envRuleAdd"><select class="envSpawnArchNew" data-env="${key}">${addOpts}</select><button class="miniBtn envSpawnAdd" data-env="${key}">${t.envSpawnAdd}</button></div>` : '';
+        const [tlo, thi] = env.tempRange || [12, 24];
+        const labelEl = built
+          ? `<b class="envLabelStatic">${label}</b>`
+          : `<input type="text" class="envLabel" data-env="${key}" value="${env.label || key}" size="10">`;
+        return `<div class="envItem${active ? ' envActive' : ''}">
+          <div class="envHead">
+            ${labelEl}
+            ${active ? `<span class="envTag">${t.envActive}</span>` : `<button class="miniBtn envForce" data-env="${key}" title="${t.envForceTip}">${t.envForce}</button>`}
+            <button class="miniBtn envEdit" data-env="${key}" title="${t.envEditTip}">${t.envEdit}</button>
+            ${active ? '' : `<button class="miniBtn envDel" data-env="${key}" title="${t.envDelTip}">\u00d7</button>`}
+          </div>
+          <div class="envEditor" ${open ? '' : 'hidden'}>
+            <div class="envProps">
+              <label>${t.envTempLo} <input type="number" class="envTemp" data-env="${key}" data-field="lo" step="0.5" value="${tlo}"></label>
+              <label>${t.envTempHi} <input type="number" class="envTemp" data-env="${key}" data-field="hi" step="0.5" value="${thi}"></label>
+              <label title="${t.envEnterTip}">${t.envEnter} <input type="number" class="envFactor" data-env="${key}" data-field="enter" step="0.1" min="0" value="${env.enterWeight ?? 1}"></label>
+              <label title="${t.envLeaveTip}">${t.envLeave} <input type="number" class="envFactor" data-env="${key}" data-field="leave" step="0.1" min="0" value="${env.leaveFactor ?? 1}"></label>
+            </div>
+            <div class="envRules">${rules}${addRow}</div>
+          </div>
+        </div>`;
+      }).join('');
     }
 
     // The "Outcome" dropdown now lists EVENTS directly (no more TYPE_TO_US indirection) — the user picks
@@ -2728,8 +3210,8 @@
           <b>${needLabel(n)}</b>
           <small style="opacity:.6">${n.key}</small>
           <small style="opacity:.7;margin-left:auto">= ${val.toFixed(2)}</small>
-          <button class="needCfgBtn" data-need-idx="${i}" title="${t.needTune ?? '⚙'}">⚙</button>
-          <button class="needDel" data-need-del-idx="${i}" title="${t.needDelete}">×</button>
+          <button class="miniBtn needCfgBtn" data-need-idx="${i}" title="${t.needTune ?? '⚙'}">⚙</button>
+          <button class="miniBtn needDel" data-need-del-idx="${i}" title="${t.needDelete}">×</button>
           <div class="needCfg" hidden><table><tbody>
             <tr><td>${t.needDecay}</td><td><input type="range" class="nsl_decay" data-need-idx="${i}" min=".0001" max=".003" step=".0001" value="${decayVal}"><output>${decayVal.toFixed(4)}</output></td></tr>
             <tr><td>${t.needMoodW}</td><td><input type="range" class="nsl_mood" data-need-idx="${i}" min="0" max="3" step=".1" value="${n.moodWeight}"><output>${n.moodWeight.toFixed(2)}</output></td></tr>
@@ -2790,6 +3272,7 @@
       $('#slider_hour').disabled = clock;
       renderRefs();
       renderBestiary();
+      renderEnvironments();
       renderRandomCfg();
       buildArchForm();
       renderNeeds();
@@ -2819,7 +3302,7 @@
           <div class="qHead">
             <span style="color:${col}">\u25a0</span> ${t[lbl]}
             <span class="life">${fmtLife(p.tau)}</span>
-            <button class="rmCustom" data-idx="${i}" aria-label="×">×</button>
+            <button class="miniBtn rmCustom" data-idx="${i}" aria-label="×">×</button>
           </div>
           <div class="qRow"><span>${t.custAmp}</span><input type="range" class="qsl_a" data-idx="${i}" min="-1" max="1" step=".05" value="${p.amp}"><output>${p.amp.toFixed(2)}</output></div>
           <div class="qRow"><span>${t.custTau}</span><input type="range" class="qsl_t" data-idx="${i}" min="1" max="500" step="1" value="${p.tau}"><output>${p.tau}</output></div>
@@ -2844,7 +3327,7 @@
     // parents (#customQueue, #bestiary, #events, #variableList, #params, #customButtons,
     // #timeline) catch clicks/changes/inputs from their children via event bubbling —
     // no re-attachment when build() re-renders the DOM on language change. Static
-    // element handlers (#pause, #reset, #drawerbtn, #lang, modal open + create buttons)
+    // element handlers (#pause, #load, #save, #drawerbtn, #lang, modal open + create buttons)
     // attach once here too.
     //
     // Convention: every dynamically-created interactive element carries a data-* attribute
@@ -2854,7 +3337,11 @@
     function wireUI() {
       // ===== Static button handlers (attach once) =====
       $('#pause').addEventListener('click', () => { run = !run; $('#pause').textContent = run ? t.pause : t.resume; });
-      $('#reset').addEventListener('click', init);
+      // Load / Save are stubs for now — no persistence wired up. Buttons stay visible so the affordance is
+      // discoverable, but clicking only surfaces the "not implemented yet" tooltip. init() (full reset) is
+      // still callable internally but has no UI entry point until Save/Load lands.
+      $('#load').addEventListener('click', () => { /* TODO: load saved sim state */ });
+      $('#save').addEventListener('click', () => { /* TODO: persist current sim state */ });
       $('#drawerbtn').addEventListener('click', () => { const d = $('#drawer'); d.hidden = !d.hidden; $('#drawerbtn').setAttribute('aria-expanded', !d.hidden); });
       $('#lang').addEventListener('click', () => { lang = lang === 'en' ? 'cs' : 'en'; build(); });
 
@@ -2923,6 +3410,7 @@
           events: [form.querySelector('#archUT').value],   // single event (the picked one) — for multi-event archetypes, edit source
         };
         renderBestiary();
+        renderEnvironments();   // new archetype = new column in every env's spawn table
         $('#archModal').hidden = true;
       });
       // Add a custom need (or restore a previously-deleted builtin like hunger). The key is sanitised
@@ -2972,16 +3460,33 @@
         form.querySelector('#needKeyInput').value = '';
         form.querySelector('#needLabelInput').value = '';
       });
-      // ===== Timeline hover (delegated on #timeline canvas) =====
-      // Hovering a numbered tag on the timeline shows which events it stands for. When no tag is hovered,
-      // the title is cleared (so the canvas doesn't carry a persistent "Mood over time" tooltip that
-      // flickers on every mouse move). Hit zone widened to 14px (was 7) so the numbers are actually hoverable.
+      // ===== Timeline tag interaction (delegated on #timeline canvas) =====
+      // The colored squares on the timeline ARE the recent-events list now. Hovering shows EVERY square under the
+      // cursor in #eventDetail (one row each) — so when tags overlap (adjacent ticks) you see all of them at once.
+      // Click pins a CLUSTER: every square at the clicked x is pinned together (mirroring hover-shows-all),
+      // and clicks accumulate — pin one cluster, then another, all stack up in #eventDetail. Clicking a cluster
+      // whose tags are ALL already pinned un-pins them (whole-cluster toggle). Clicking empty canvas clears every
+      // pin. Each pinned tag snapshots its LOG row at click time, so detail survives even after the badge scrolls
+      // off the left edge. Hit zone = the square's own width (MARKS.w=10).
+      const hitAt = px => MARKS.filter(mk => Math.abs(mk.x - px) <= mk.w / 2 + 1);   // every tag under the cursor, front→back in paint order
       $('#timeline').addEventListener('mousemove', e => {
         const px = e.clientX - e.target.getBoundingClientRect().left;
-        const tag = MARKS.find(mk => Math.abs(mk.x - px) < 14);
-        e.target.title = tag ? '#' + tag.m.id + ' · ' + tag.m.k.map(eventLabel).join(', ') : '';
+        _hoverMarks = hitAt(px);
       });
-      $('#timeline').addEventListener('mouseleave', e => { e.target.title = ''; });
+      $('#timeline').addEventListener('mouseleave', () => { _hoverMarks = []; });
+      $('#timeline').addEventListener('click', e => {
+        const px = e.clientX - e.target.getBoundingClientRect().left;
+        const stack = hitAt(px);
+        if (!stack.length) { _pinned.clear(); return; }                      // clicked empty → drop all pins
+        const allPinned = stack.every(mk => _pinned.has(mk.m.id));
+        if (allPinned) {                                                     // cluster fully pinned → unpin them all
+          for (const mk of stack) _pinned.delete(mk.m.id);
+        } else {                                                            // pin every tag in the cluster, snapshot its LOG row
+          for (const mk of stack) {
+            if (!_pinned.has(mk.m.id)) _pinned.set(mk.m.id, LOG.find(x => x.id === mk.m.id) || null);
+          }
+        }
+      });
 
       // ===== Variable panel checkboxes — delegate on #variableList =====
       $('#variableList').addEventListener('change', e => {
@@ -3106,15 +3611,104 @@
         const v = parseFloat(inp.value);
         if (isNaN(v) || v < 0) return;
         if (inp.dataset.field === 'age') {
-          arch.surroundAgeRate = v;   // despawn rate is a raw multiplier — no conversion
-        } else {
-          // Spawn rates display as encounters/sim-hour; convert back to per-tick for storage.
-          const tickRate = v / TICKS_PER_HOUR;
-          const state = inp.dataset.state;
-          if (!arch.spawns) arch.spawns = {};
-          if (tickRate === 0) delete arch.spawns[state];   // keep the table clean — 0 = unspecified
-          else arch.spawns[state] = tickRate;
+          arch.surroundAgeRate = v;   // despawn rate is a raw multiplier — no conversion. (Spawn rates live on envs now.)
         }
+      });
+
+      // ===== Environment drawer — delegate on #envList (live edits + force + edit + delete) =====
+      $('#envList').addEventListener('input', e => {
+        const inp = e.target;
+        const key = inp.dataset.env;
+        const env = ENVIRONMENTS[key];
+        if (!env) return;
+        if (inp.classList.contains('envLabel')) {
+          env.label = inp.value || key;   // custom env rename — live, no re-render needed (input already shows it)
+          saveEnvEdits();
+          return;
+        }
+        const v = parseFloat(inp.value);
+        if (isNaN(v) || v < 0) return;
+        if (inp.classList.contains('envSpawnRate')) {
+          // Flat spawn rate: encounters/sim-hour → per-tick. 0 = remove the archetype from env.spawns.
+          const an = inp.dataset.arch;
+          if (!env.spawns) env.spawns = {};
+          const tickRate = v / TICKS_PER_HOUR;
+          if (tickRate === 0) { delete env.spawns[an]; saveEnvEdits(); renderEnvironments(); }   // 0 = row removed
+          else { env.spawns[an] = tickRate; saveEnvEdits(); }
+        } else if (inp.classList.contains('envTemp')) {
+          const [lo, hi] = env.tempRange || [12, 24];
+          env.tempRange = inp.dataset.field === 'lo' ? [v, hi] : [lo, v];
+          saveEnvEdits();
+          if (key === W.environment) deriveWorld();   // live temp update if editing active env
+        } else if (inp.classList.contains('envFactor')) {
+          if (inp.dataset.field === 'enter') env.enterWeight = v;
+          else env.leaveFactor = v;
+          saveEnvEdits();
+        }
+      });
+      // Change-event (selects don't fire 'input' reliably): when a spawn-rule's archetype dropdown changes,
+      // move the rate to the new archetype key (deleting the old one). Re-render to refresh the add-rule dropdown.
+      $('#envList').addEventListener('change', e => {
+        const sel = e.target.closest('select.envSpawnArch');
+        if (!sel) return;
+        const key = sel.dataset.env;
+        const env = ENVIRONMENTS[key];
+        if (!env || !env.spawns) return;
+        const prev = sel.dataset.prev, next = sel.value;
+        if (prev === next || env.spawns[next]) { renderEnvironments(); return; }   // no-op or collision → revert via re-render
+        env.spawns[next] = env.spawns[prev];
+        delete env.spawns[prev];
+        saveEnvEdits();
+        renderEnvironments();
+      });
+      $('#envList').addEventListener('click', e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const key = btn.dataset.env;
+        const env = ENVIRONMENTS[key];
+        if (!env) return;
+        if (btn.classList.contains('envForce')) {
+          changeEnvironment(key, 'forced');   // grab + throw — bypasses wander roll, logs "via forced"
+          renderEnvironments();   // re-render so the active highlight + button set moves
+        } else if (btn.classList.contains('envEdit')) {
+          if (openEditors.has(key)) openEditors.delete(key); else openEditors.add(key);   // toggle editor panel
+          renderEnvironments();
+        } else if (btn.classList.contains('envDel')) {
+          if (key === W.environment) return;   // can't delete the active env (no fall-back is safe mid-tick)
+          if (env.builtin) ENV_DELETED.add(key);   // builtin deletion persists across reloads
+          delete ENVIRONMENTS[key];
+          ENV_KEYS = Object.keys(ENVIRONMENTS);
+          openEditors.delete(key);
+          saveEnvEdits();
+          renderEnvironments();
+        } else if (btn.classList.contains('envSpawnAdd')) {
+          // Add rule: read the new-archetype dropdown next to this button, give it a default rate, re-render.
+          const row = btn.closest('.envRuleAdd');
+          const sel = row && row.querySelector('select.envSpawnArchNew');
+          const an = sel && sel.value;
+          if (!an) return;
+          if (!env.spawns) env.spawns = {};
+          env.spawns[an] = env.spawns[an] ?? 0.001;   // 0.001/tick default (~0.02/hr) — user tunes from there
+          saveEnvEdits();
+          renderEnvironments();
+        } else if (btn.classList.contains('envRuleDel')) {
+          const an = btn.dataset.arch;
+          if (env.spawns) delete env.spawns[an];
+          saveEnvEdits();
+          renderEnvironments();
+        }
+      });
+
+      // Add-environment button: creates a blank custom env and re-renders. The new env starts empty (no spawns)
+      // with neutral factors; the user fills it in via the editor. Its editor opens automatically for convenience.
+      $('#openEnvEditor').addEventListener('click', () => {
+        let i = 1, key = `env_${i}`;
+        while (ENVIRONMENTS[key]) key = `env_${++i}`;
+        ENVIRONMENTS[key] = { label: key, tempRange: [12, 24], enterWeight: 1, leaveFactor: 1, spawns: {} };
+        ENV_KEYS = Object.keys(ENVIRONMENTS);
+        openEditors.add(key);
+        saveEnvEdits();
+        renderEnvironments();
       });
 
       // ===== Random-event chances — delegate on #randomCfg (live writes + persist) =====

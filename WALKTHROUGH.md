@@ -97,7 +97,9 @@
 ---
 
 # TODO
+- REFRESH ACTUAL WALKTHROUGH
 - FIX SLEEP DEBT DOING SOMETHING WEIRD
+During wakefulness, adenosine accumulates in the brain, driving Process S upward along an exponential curve. During sleep, Process S decays exponentially. If your simulated agent's sleep is cut short, Process S doesn't reach its normal minimum — that residual carries into the next day's baseline, which then climbs from a higher starting point. The debt is the cumulative gap between the Process S nadir that should have been reached and the one that was. Practically: daily_debt = sleep_need − actual_sleep, summed across nights. The arithmetic is linear; the biological consequences are not. 1. Asymmetric: Surplus sleep does not bank. Sleeping 9h when you need 8h doesn't create a 1h credit that offsets the next night's deficit. Debt accumulates; surplus is wasted (beyond a point, extra sleep just shifts circadian phase). 2. Non-linear recovery: The first hours of sleep clear Process S much faster than later hours (steeper exponential decay early on). So a 10h recovery night doesn't "repay" 2h of debt the same way the first 2h of a normal night would. 3. Subjective plateau: Your agent's felt sleepiness (a proxy for Process S) levels off after ~1–2 weeks of restriction, while objective performance (attention, reaction time) keeps degrading. This is a well-documented decoupling. 4. No known ceiling: Debt keeps compounding with no asymptote in the data. 5. In a Borbély-based sim, you don't really need a separate "sleep debt" variable — it is the state of Process S. The "debt" is just the difference between the current Process S value and the value it would have if the agent had slept a full need-duration. If you want a scalar "debt" stat for game logic (UI, difficulty scaling, etc.), compute it as the time-integral of (ProcessS_current − ProcessS_baseline_nadir) over recent days, or simply track the cumulative hour-deficit as a running sum.
 - ENTIRE ENVIRONMENT FRAMEWORK. CLEAN CUT BETWEEN "WORLD" and "AGENT"
 - energy meter. (same category as sleep debt - meters that arent directly bodily, but very much affect stuff).
 - remove hunger from behaviour definitions.
@@ -186,8 +188,6 @@ Avoidant agent encounters novel stimulus
 
 # parked
 
-- environment
-Noted for later — the seed is: a biome or location concept where each archetype lists which biomes it appears in, the agent has a current biome (or x/y position on a biome map), and spawns are rate = biomeSpawnRate[archetype] instead of stateSpawnRate[archetype]. States like fleeing could shift the agent's biome (running blindly into deeper woods), which gives you the cascade effect without the causal inversion.
 - needs vs wants
 - Long Term Baseline
 ```pseudocode
@@ -198,6 +198,7 @@ baseline_valence = 0.10 + 0.05 * sociability - 0.05 * aggressiveness
 baseline_pull_rate = 0.001 + 0.002 * (1.0 - reactivity)  # high-reactivity agents have less stable baselines  
 ```
 - remove dominance?
+- learned urgency. i rarely get to fulfil this need = need gets urgent sooner.
 
 ---
 
@@ -223,6 +224,16 @@ baseline_pull_rate = 0.001 + 0.002 * (1.0 - reactivity)  # high-reactivity agent
 - you can now add custom needs! (next on my plate: need-specific desperation)
 - hunger is now treated as just another custom need (except for where it isnt) - is now removable
 - UI: collapsable recent events section now
+
+1.2.2 (The Pre-Environment Update)
+- memory entries now remember which need they fulfil.
+
+1.3 (Rough Environment Update)
+- added environments
+- added environment section to drawers
+- removed spawn rates from behaviour table - now handled by the world
+- cleaned up CSS (allegedly)
+
 
 
 
